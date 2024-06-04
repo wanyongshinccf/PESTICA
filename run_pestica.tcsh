@@ -396,7 +396,7 @@ if ( $physiofile != "" ) then
     	echo "Matlab version of RETROICOR is running now." |& tee -a ../${histfile}
     	echo "It provides PMU quality assurance and RETRROICOR fitting results." |& tee -a ../${histfile}
     	echo "If you do not need them, set fastpmucorflag to 1 in run_pestica.tcsh." |& tee -a ../${histfile}
-    	matlab -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; addpath $MATLAB_EEGLAB_DIR; load RetroTS.PMU.mat; [RESP CARD] = retroicor_pmu('epi_00+orig','epi_base_mask+orig',SN, CARD, RESP,'rm.polort_xmat.1D'); exit;" 
+    	matlab -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; addpath $MATLAB_EEGLAB_DIR; load RetroTS.PMU.mat; [RESP CARD] = retroicor_pmu('epi_01_errts+orig','epi_base_mask+orig',SN, CARD, RESP,'rm.polort_xmat.1D'); exit;" 
   	endif
 
 else
