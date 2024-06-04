@@ -431,7 +431,7 @@ else
     	3dAllineate 										\
     		-prefix epi_00_brain.crg2mni.nii 				\
     		-source epi_00_brain+orig 						\
-    		-base $PESTICA_VOL_DIR/meanepi_mni_brain.nii 	\
+    		-base $PESTICA_VOL_DIR/meanepi_mni.brain.nii 	\
     		-1Dmatrix_save epi_00_brain.coreg.mni.1D 		\
     		-overwrite										
     		
