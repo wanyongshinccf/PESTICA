@@ -29,6 +29,7 @@ set tfile      = ""      # tshiftfile (sec)
 set physiofile = "" # physio file (pmu) for RETROICOR 
 set batchflag  = 0 # default 
 set icaflag    = "matlab" # MATLAB or fsl
+set fastpmucorflag = 0 # just for option
 
 set DO_CLEAN     = 0                       # default: keep working dir
 
@@ -474,8 +475,6 @@ else
     set snamer = Coupling_retroicor_pmu_Resp
     
 endif
-
-echo $iname 
   
 if ( -f $iname+orig.HEAD ) then
 
@@ -526,7 +525,6 @@ if ( -f $iname+orig.HEAD ) then
 else
     echo SKIP Step5 $iname+orig.BRIK does not exist. |& tee -a ../$histfile
 endif
-  
   
   
 # move out of wdir to the odir
