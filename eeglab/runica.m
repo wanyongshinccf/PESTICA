@@ -867,14 +867,16 @@ end
   blockno = 1;  % running block counter for kurtosis interrupts
 
   aversion=version('-release');
-  if (str2num(aversion(1:4))>2011)
-    c=clock; c=c(3:6); c=round(10*sum(reshape(c(randperm(4)), 2, 2))); normrnd(0,1,c); clear c;
-                    % set the random number generator state to
-                    % a position dependent on the system clock
-  else
-    rand('state',sum(100*clock));  % set the random number generator state to
-                                   % a position dependent on the system clock
-  end
+%   if (str2num(aversion(1:4))>2011)
+%     c=clock; c=c(3:6); c=round(10*sum(reshape(c(randperm(4)), 2, 2))); normrnd(0,1,c); clear c;
+%                     % set the random number generator state to
+%                     % a position dependent on the system clock
+%   else
+%     rand('state',sum(100*clock));  % set the random number generator state to
+%                                    % a position dependent on the system clock
+%   end
+  rng('default'); % v5.52 (W.S)
+
   while step < maxsteps, %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       permute=randperm(datalength); % shuffle data order at each step
 

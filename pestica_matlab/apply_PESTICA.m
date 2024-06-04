@@ -38,7 +38,7 @@ slice_timing_sec=load('tshiftfile.1D');
 
 % open the averaged spatial unmixing matrices
 if ~exist('Ptemplate')
-  Ptemplate='PESTICA5';
+  Ptemplate='pestica5';
 end
 
 % read pestica templates
