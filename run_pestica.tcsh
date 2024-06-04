@@ -321,8 +321,10 @@ if ( "$jsonfile" != "" && "$tfile" != "")  then
   echo " ** ERROR:  Both jsonfile and tfile options should not be used." |& tee -a ${histfile}
   goto BAD_EXIT
 else if ( "$jsonfile" != "")  then
+  echo "++ json is provided for the slice timing acquisition info." |& tee -a ${histfile}
   abids_json_info.py -json $jsonfile -field SliceTiming | sed "s/[][]//g" | sed "s/,//g" | xargs printf "%s\n" > ${owdir}/tshiftfile.1D
 else if ( "$tfile" != "")  then
+  echo "++ tfile is provided for the slice timing acquisition info." |& tee -a ${histfile}
   cp $tfile ${owdir}/tshiftfile.1D
 endif
 
@@ -359,7 +361,7 @@ cd "${owdir}"
 if ( $physiofile != "" ) then
   	set physiofile = "../$physiofile"
   	echo "Reading PMU files of $physiofile " |& tee -a ../${histfile}
-  	matlab -nodesktop -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; addpath $MATLAB_EEGLAB_DIR; rw_pmu_siemens('epi_01_errts+orig','$physiofile'); [SN RESP CARD] = RetroTS_CCF_adv('epi_01_errts+orig','card_raw_pmu.dat','resp_raw_pmu.dat'); exit;" |& tee     $histfile
+  	matlab -nodesktop -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; addpath $MATLAB_EEGLAB_DIR; rw_pmu_siemens('epi_01_errts+orig','$physiofile'); [SN RESP CARD] = RetroTS_CCF_adv('epi_01_errts+orig','card_raw_pmu.dat','resp_raw_pmu.dat'); exit;" 
   	if ( $fastpmucorflag == 1 ) then # afni RETROICOR
     	echo "AFNI RETROICOR is running now." |& tee -a ../${histfile}
     	3dDetrend \
@@ -505,7 +507,7 @@ if ( -f $iname+orig.HEAD ) then
     endif
       
     set fname = `basename epi_00_brain`
-    echo $fname
+    
     # threshold for cardiac/respiratory coupling is ideally detected from the data itself, but may have to be adjusted manually
     afni -com "OPEN_WINDOW A.axialimage mont="$montstr":2:0:none opacity=6" 		\
          -com "SET_UNDERLAY A.$fname+orig.HEAD"       								\
@@ -532,21 +534,21 @@ cd ..
 set whereout = $PWD
 
 # copy the final result
-echo "++ saving physiologic noise corrected EPI dataset as $prefix " |& tee -a $histfile
+echo "++ Saving physiologic noise corrected EPI dataset is saved with $prefix " |& tee -a $histfile
 if ( $physiofile == "" ) then
 	3dcopy 	"${owdir}"/epi_01_errts.retroicor_pestica+orig	\
 			./"${prefix}" 									\
 			-overwrite 		
-	echo "++ however, you might not need $prefix file but $owdir/RetroTS.PESTICA5.slibase.1D " |& tee -a $histfile								
+	echo "++ However, you might not need a $prefix file but $owdir/RetroTS.PESTICA5.slibase.1D " |& tee -a $histfile								
 else
 	3dcopy 	"${owdir}"/epi_01_errts.retroicor_pmu+orig 		\
 			./"${prefix}" 									\
 			-overwrite 
-	echo "++ however, you might not need $prefix file but $owdir/RetroTS.PMU.slibase.1D " |& tee -a $histfile										
+	echo "++ However, you might not need a $prefix file but $owdir/RetroTS.PMU.slibase.1D " |& tee -a $histfile										
 endif
 echo "++ Physio nuisance regressors are recommended to remove out with motion nuisance regressors " |& tee -a $histfile		
-echo "++ all together after motion correction " |& tee -a $histfile
-echo "++ Check run_slomoco/volmoco.tcsh in SLOMOCO package "		|& tee -a $histfile	
+echo "++   all together after motion correction " |& tee -a $histfile
+echo "++ Check run_slomoco/volmoco.tcsh in a SLOMOCO package "		|& tee -a $histfile	
 
 if ( $DO_CLEAN == 1 ) then
     echo "++ Removing the large size of temporary files in working dir: '$wdirn" |& tee -a $histfile
