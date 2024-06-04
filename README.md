@@ -26,7 +26,7 @@ Example
 run_pestica.tcsh <options>
 
 Required options:
- -dset_epi input     = input data is non-motion corrected 4D EPI images. 
+ -dset_epi input     = input data is non-motion corrected 4D EPI images.
                        DO NOT apply any motion correction on input data.
                        It is not recommended to apply physiologic noise correction on the input data
                        Physiologoc noise components can be regressed out with -phyio option 
