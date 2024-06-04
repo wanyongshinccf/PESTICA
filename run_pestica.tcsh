@@ -455,7 +455,7 @@ else
   		-overwrite													
 
  	# run PESTICA
-  	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; disp('Wait, script starting...'); [card,resp]=apply_PESTICA(15,'epi_00.errts+orig','epi_base_mask+orig'); fp=fopen('card_raw_pestica5.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_raw_pestica5.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); disp('Stage 2 Done!'); exit;" 
+  	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; disp('Wait, script starting...'); [card,resp]=apply_PESTICA(15,'epi_00_errts+orig','epi_base_mask+orig'); fp=fopen('card_raw_pestica5.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_raw_pestica5.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); disp('Stage 2 Done!'); exit;" 
 	
   	echo "Running Stage 3: Filtering PESTICA estimators, cardiac first, then respiratory" |& tee -a ../$histfile
   	matlab -nodesktop -nosplash -r "addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; load('card_raw_pestica5.dat'); load('resp_raw_pestica5.dat'); disp('Wait, script starting...'); card=view_and_correct_estimator(card_raw_pestica5,'epi_00+orig','c',$batchflag); resp=view_and_correct_estimator(resp_raw_pestica5,'epi_00+orig','r',$batchflag);  fp=fopen('card_pestica5.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_pestica5.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); disp('Stage 3 Done!'); exit;" 
