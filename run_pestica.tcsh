@@ -439,14 +439,14 @@ else
   	# move PESTICA template mni to EPI space
   	3dAllineate 													\
   		-prefix ./resp_pestica5.nii 									\
-  		-source $PESTICA_VOL_DIR/resp_mean_mni_pestica5.brain.nii 	\
+  		-source $PESTICA_VOL_DIR/resp_mean_mni_PESTICA5.brain.nii 	\
   		-base epi_00_brain+orig 									\
   		-1Dmatrix_apply mni.coreg.1D 								\
   		-overwrite													
   
   	3dAllineate 													\
   		-prefix ./card_pestica5.nii 									\
-  		-source $PESTICA_VOL_DIR/card_mean_mni_pestica5.brain.nii 	\
+  		-source $PESTICA_VOL_DIR/card_mean_mni_PESTICA5.brain.nii 	\
   		-base epi_00_brain+orig 									\
   		-1Dmatrix_apply mni.coreg.1D 								\
   		-overwrite													
