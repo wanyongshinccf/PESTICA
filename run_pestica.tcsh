@@ -353,7 +353,7 @@ cd "${owdir}"
  	-input epi_00+orig			\
 	-matrix polort_xmat.1D 		\
 	-mask epi_base_mask+orig 	\
-    -Oerrts epi_01_errts 		\
+    -Oerrts epi_00_errts 		\
     -overwrite					
     
 1dcat polort_xmat.1D > rm.polort_xmat.1D 
@@ -361,7 +361,7 @@ cd "${owdir}"
 if ( $physiofile != "" ) then
   	set physiofile = "../$physiofile"
   	echo "Reading PMU files of $physiofile " |& tee -a ../${histfile}
-  	matlab -nodesktop -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; addpath $MATLAB_EEGLAB_DIR; rw_pmu_siemens('epi_01_errts+orig','$physiofile'); [SN RESP CARD] = RetroTS_CCF_adv('epi_01_errts+orig','card_raw_pmu.dat','resp_raw_pmu.dat'); exit;" 
+  	matlab -nodesktop -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; addpath $MATLAB_EEGLAB_DIR; rw_pmu_siemens('epi_00+orig','$physiofile'); [SN RESP CARD] = RetroTS_CCF_adv('epi_00+orig','card_raw_pmu.dat','resp_raw_pmu.dat'); exit;" 
   	if ( $fastpmucorflag == 1 ) then # afni RETROICOR
     	echo "AFNI RETROICOR is running now." |& tee -a ../${histfile}
     	3dDetrend \
@@ -372,24 +372,24 @@ if ( $physiofile != "" ) then
     	1dtranspose rm.ricor.1D ricor_det.1D
     
     	3dREMLfit \
-    		-input epi_01_errts+orig \
+    		-input epi_00_errts+orig \
     		-matrix rm.polort.xmat.1D \
     		-mask epi_base_mask+orig \
-        	-Obeta epi_01_polort_betas \
-        	-Oerrts epi_02_retroicor_pmu  \
+        	-Obeta epi_00_polort_betas \
+        	-Oerrts epi_00_errts_retroicor_pmu  \
         	-slibase_sm ricor_det.1D
 
     	3dSynthesize \
-    		-matrix epi_01_polort.xmat.1D \
-    		-cbucket epi_01_polort_betas+orig \
+    		-matrix epi_00_polort.xmat.1D \
+    		-cbucket epi_00_polort_betas+orig \
     		-select polort \
     		-prefix temp+orig \
     		-overwrite
     	3dcalc \
     		-a temp+orig \
-    		-b epi_01_polort_errts_retroicor_pmu+orig \
+    		-b epi_00_errts_retroicor_pmu+orig \
     		-expr 'a+b' \
-    		-prefix epi_02_retroicor_pmu+orig \
+    		-prefix epi_00_retroicor_pmu+orig \
     		-overwrite
 
     	rm temp+orig* rm.*
@@ -398,25 +398,25 @@ if ( $physiofile != "" ) then
     	echo "Matlab version of RETROICOR is running now." |& tee -a ../${histfile}
     	echo "It provides PMU quality assurance and RETRROICOR fitting results." |& tee -a ../${histfile}
     	echo "If you do not need them, set fastpmucorflag to 1 in run_pestica.tcsh." |& tee -a ../${histfile}
-    	matlab -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; addpath $MATLAB_EEGLAB_DIR; load RetroTS.PMU.mat; [RESP CARD] = retroicor_pmu('epi_01_errts+orig','epi_base_mask+orig',SN, CARD, RESP,'rm.polort_xmat.1D'); exit;" 
+    	matlab -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; addpath $MATLAB_EEGLAB_DIR; load RetroTS.PMU.mat; [RESP CARD] = retroicor_pmu('epi_00+orig','epi_base_mask+orig',SN, CARD, RESP,'rm.polort_xmat.1D'); exit;" 
   	endif
 
 else
 	# PESTICA starts
 	if ( $icaflag == "matlab" ) then
     	echo "Running Stage 1: slicewise temporal Infomax ICA" |& tee -a ../${histfile}
-    	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_EEGLAB_DIR;disp('Wait, script starting...'); prepare_ICA_decomp_polort(15,'epi_01_errts+orig','epi_base_mask+orig'); disp('Stage 1 Done!'); exit;" 
+    	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_EEGLAB_DIR;disp('Wait, script starting...'); prepare_ICA_decomp_polort(15,'epi_00_errts+orig','epi_base_mask+orig'); disp('Stage 1 Done!'); exit;" 
 	
 	# Under development, not working yet
   	else if ( $icaflag == "fsl" ) then
     	echo there1
-		set dims = `3dAttribute DATASET_DIMENSIONS epi_00.nii`
+		set dims = `3dAttribute DATASET_DIMENSIONS epi_00+orig`
 		set zdim = ${dims[3]}                           # tcsh uses 1-based counting
 		@   zcount  = ${zdim} - 1
 
 		foreach z ( `seq 0 1 ${zcount}` )
-  			3dZcutup -keep $z $z -prefix epi_01.sli."${z}".nii epi_01.nii 
-  			3dZcutup -keep $z $z -prefix epi_mask.sli."${z}".nii epi_mask.nii 
+  			3dZcutup -keep $z $z -prefix epi_01.sli."${z}".nii epi_01+orig 
+  			3dZcutup -keep $z $z -prefix epi_mask.sli."${z}".nii epi_base_mask+orig 
   
   			# ICA here
   			melodic -i epi_01.sli."${z}".nii -m epi_mask.sli."${z}".nii --report
@@ -429,13 +429,13 @@ else
   	# EPI to MNI
   	if ( ! -f mni.coreg.1D ) then
     	3dAllineate 										\
-    		-prefix epi_01_brain.crg2mni.nii 				\
+    		-prefix epi_00_brain.crg2mni.nii 				\
     		-source epi_00_brain+orig 						\
-    		-base $PESTICA_VOL_DIR/meanepi_mni.brain.nii 	\
-    		-1Dmatrix_save epi_01_brain.coreg.mni.1D 		\
+    		-base $PESTICA_VOL_DIR/meanepi_mni_brain.nii 	\
+    		-1Dmatrix_save epi_00_brain.coreg.mni.1D 		\
     		-overwrite										
     		
-        cat_matvec epi_01_brain.coreg.mni.1D -I -ONELINE > mni.coreg.1D -overwrite
+        cat_matvec epi_00_brain.coreg.mni.1D -I -ONELINE > mni.coreg.1D -overwrite
         
   	endif
 
@@ -455,24 +455,24 @@ else
   		-overwrite													
 
  	# run PESTICA
-  	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; disp('Wait, script starting...'); [card,resp]=apply_PESTICA(15,'epi_01_errts+orig','epi_base_mask+orig'); fp=fopen('card_raw_pestica5.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_raw_pestica5.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); disp('Stage 2 Done!'); exit;" 
+  	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; disp('Wait, script starting...'); [card,resp]=apply_PESTICA(15,'epi_00.errts+orig','epi_base_mask+orig'); fp=fopen('card_raw_pestica5.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_raw_pestica5.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); disp('Stage 2 Done!'); exit;" 
 	
   	echo "Running Stage 3: Filtering PESTICA estimators, cardiac first, then respiratory" |& tee -a ../$histfile
   	matlab -nodesktop -nosplash -r "addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; load('card_raw_pestica5.dat'); load('resp_raw_pestica5.dat'); disp('Wait, script starting...'); card=view_and_correct_estimator(card_raw_pestica5,'epi_00+orig','c',$batchflag); resp=view_and_correct_estimator(resp_raw_pestica5,'epi_00+orig','r',$batchflag);  fp=fopen('card_pestica5.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_pestica5.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); disp('Stage 3 Done!'); exit;" 
 
 	echo "Running Stage 4: Running MATLAB-version of RETROICOR with physiological noise fluctuation" |& tee -a ../$histfile
-  	matlab -nodesktop -nosplash -r "addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; retroicor_pestica('epi_01_errts+orig','card_pestica5.dat','resp_pestica5.dat','epi_base_mask+orig','rm.polort_xmat.1D'); disp('Stage 4 done!'); exit;" 
+  	matlab -nodesktop -nosplash -r "addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; retroicor_pestica('epi_00+orig','card_pestica5.dat','resp_pestica5.dat','epi_base_mask+orig','rm.polort_xmat.1D'); disp('Stage 4 done!'); exit;" 
 
 endif
 
 
 if ( $physiofile == "" ) then
-    set iname  = epi_01_errts.retroicor_pestica.bucket
+    set iname  = epi_00.retroicor_pestica.bucket
     set snamec = Coupling_retroicor_pestica_Card
     set snamer = Coupling_retroicor_pestica_Resp
     
 else
-    set iname  = epi_01_errts.retroicor_pmu.bucket
+    set iname  = epi_00.retroicor_pmu.bucket
     set snamec = Coupling_retroicor_pmu_Card
     set snamer = Coupling_retroicor_pmu_Resp
     
@@ -536,14 +536,18 @@ set whereout = $PWD
 # copy the final result
 echo "++ Saving physiologic noise corrected EPI dataset is saved with $prefix " |& tee -a $histfile
 if ( $physiofile == "" ) then
-	3dcopy 	"${owdir}"/epi_01_errts.retroicor_pestica+orig	\
-			./"${prefix}" 									\
-			-overwrite 		
+	3dcalc 													\
+		-a "${owdir}"/epi_00.retroicor_pestica+orig	\
+		-expr 'a' 											\
+		-prefix ./"${prefix}" 								\
+		-overwrite 		
 	echo "++ However, you might not need a $prefix file but $owdir/RetroTS.PESTICA5.slibase.1D " |& tee -a $histfile								
 else
-	3dcopy 	"${owdir}"/epi_01_errts.retroicor_pmu+orig 		\
-			./"${prefix}" 									\
-			-overwrite 
+	3dcalc  												\
+		-a 	"${owdir}"/epi_00.retroicor_pmu+orig 		\
+		-expr 'a' 											\
+		-prefix ./"${prefix}" 								\
+		-overwrite 	 
 	echo "++ However, you might not need a $prefix file but $owdir/RetroTS.PMU.slibase.1D " |& tee -a $histfile										
 endif
 echo "++ Physio nuisance regressors are recommended to remove out with motion nuisance regressors " |& tee -a $histfile		
@@ -557,7 +561,7 @@ if ( $DO_CLEAN == 1 ) then
     echo "++ Removing the large size of temporary files in working dir: '$wdirn" |& tee -a $histfile
     
   	rm -f 	"${owdir}"/epi_00+orig.* 		\
-  			"${owdir}"/epi_01_errts+orig.* 	
+  			"${owdir}"/epi_00_errts+orig.* 	
     
 endif
 
