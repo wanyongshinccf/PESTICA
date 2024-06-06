@@ -533,7 +533,7 @@ if ( -f $iname+orig.HEAD ) then
      	-set_xhairs OFF \
      	-montx 3 -monty 3 -montgap 2 \
      	-set_subbricks -1 1 1 \
-     	-prefix __temp_resp	\
+     	-prefix __tmp_resp	\
      	-no_cor -no_sag -do_clean 
      mv __tmp_resp.axi.png $snamer.png
       
@@ -546,7 +546,7 @@ if ( -f $iname+orig.HEAD ) then
      	-set_xhairs OFF \
      	-montx 3 -monty 3 -montgap 2 \
      	-set_subbricks -1 2 2 \
-     	-prefix __temp_card	\
+     	-prefix __tmp_card	\
      	-no_cor -no_sag -do_clean 
      mv __tmp_card.axi.png $snamec.png
 																
