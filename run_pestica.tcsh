@@ -621,9 +621,11 @@ Required options:
  -prefix output      = output filename
  
 Optional:
- -dset_mask			 = skull stripped mask 
- -pmu			 	 = pmu file prefix for RETROICOR (NOT PESTICA)  
+ -dset_mask	input	 = skull stripped mask 
+ -pmu	input	 	 = pmu file prefix for RETROICOR (NOT PESTICA)  
  -workdir  directory = intermediate output data will be generated in the defined directory.
+ -auto				 = batch mode. Auto selection of the estimated cardiac and respiratory
+ 					   frequency band filtering.
  -do_clean           = this option will delete the large size of files in working directory 
 
 EOF
