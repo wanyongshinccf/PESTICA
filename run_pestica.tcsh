@@ -497,33 +497,59 @@ if ( -f $iname+orig.HEAD ) then
     set zpos = `echo "scale=0; $zdim/2" | bc`
 
     if ( $zdim  > 72 ) then
-      set montstr = "6x6"
+      set mont = 6
     else if ( $zdim > 50 ) then
-      set montstr = "5x5"
+      set mont = 5
     else if ( $zdim > 32 ) then
-      set montstr = "4x4"
+      set mont = 4
     else
-      set montstr = "3x3"
+      set mont = 3
     endif
       
     set fname = `basename epi_00_brain`
     
     # threshold for cardiac/respiratory coupling is ideally detected from the data itself, but may have to be adjusted manually
-    afni -com "OPEN_WINDOW A.axialimage mont="$montstr":2:0:none opacity=6"	\
-         -com "SET_UNDERLAY A.$fname+orig.HEAD"       						\
-         -com 'SET_XHAIRS A.OFF' 											\
-         -com "SET_OVERLAY A.$iname+orig.HEAD 1 1"  						\
-         -com "SET_THRESHNEW A 0.01 *p" 									\
-         -com 'SET_PBAR_NUMBER A.12'        								\
-         -com 'SET_FUNC_RANGE A.10' 										\
-         -com "SAVE_JPEG A.axialimage $snamer" 								\
-         -com "SET_OVERLAY A.$iname+orig.HEAD 2 2"  						\
-         -com "SET_THRESHNEW A 0.01 *p" 									\
-         -com 'SET_PBAR_NUMBER A.12'        								\
-         -com 'SET_FUNC_RANGE A.10' 										\
-         -com "SAVE_JPEG A.axialimage $snamec"  							\
-         -com 'QUIT' 																
-
+#    afni -com "OPEN_WINDOW A.axialimage mont="$montstr":2:0:none opacity=6"	\
+#         -com "SET_UNDERLAY A.$fname+orig.HEAD"       						\
+#         -com 'SET_XHAIRS A.OFF' 											\
+#         -com "SET_OVERLAY A.$iname+orig.HEAD 1 1"  						\
+#         -com "SET_THRESHNEW A 0.01 *p" 									\
+#         -com 'SET_PBAR_NUMBER A.12'        								\
+#         -com 'SET_FUNC_RANGE A.10' 										\
+#         -com "SAVE_JPEG A.axialimage $snamer" 								\
+#         -com "SET_OVERLAY A.$iname+orig.HEAD 2 2"  						\
+#         -com "SET_THRESHNEW A 0.01 *p" 									\
+#         -com 'SET_PBAR_NUMBER A.12'        								\
+#         -com 'SET_FUNC_RANGE A.10' 										\
+#         -com "SAVE_JPEG A.axialimage $snamec"  							\
+#         -com 'QUIT' 
+         
+     @chauffeur_afni 	\
+     	-ulay $fname+orig \
+     	-olay $iname+orig \
+     	-func_range 10 \
+     	-thr_olay_p2stat 0.01 \
+     	-thr_olay_pside 2sided \
+     	-set_xhairs OFF \
+     	-montx 3 -monty 3 -montgap 2 \
+     	-set_subbricks -1 1 1 \
+     	-prefix __temp_resp	\
+     	-no_cor -no_sag -do_clean 
+     mv __tmp_resp.axi.png $snamer.png
+      
+     @chauffeur_afni 	\
+     	-ulay $fname+orig \
+     	-olay $iname+orig \
+     	-func_range 10 \
+     	-thr_olay_p2stat 0.01 \
+     	-thr_olay_pside 2sided \
+     	-set_xhairs OFF \
+     	-montx 3 -monty 3 -montgap 2 \
+     	-set_subbricks -1 2 2 \
+     	-prefix __temp_card	\
+     	-no_cor -no_sag -do_clean 
+     mv __tmp_card.axi.png $snamec.png
+																
 else
     echo SKIP Step5 $iname+orig.BRIK does not exist. |& tee -a ../$histfile
 endif
