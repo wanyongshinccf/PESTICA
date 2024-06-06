@@ -531,7 +531,7 @@ if ( -f $iname+orig.HEAD ) then
      	-thr_olay_p2stat 0.01 \
      	-thr_olay_pside 2sided \
      	-set_xhairs OFF \
-     	-montx 3 -monty 3 -montgap 2 \
+     	-montx $mont -monty $mont -montgap 2 \
      	-set_subbricks -1 1 1 \
      	-prefix __tmp_resp	\
      	-no_cor -no_sag -do_clean 
