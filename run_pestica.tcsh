@@ -19,7 +19,7 @@ set odir      = $here
 set opref     = ""
 set wdir      = ""
 
-# --------------------- slomoco-specific inputs --------------------
+# --------------------- pestica-specific inputs --------------------
 
 # all allowed slice acquisition keywords
 set epi        = ""   # base 3D+time EPI dataset to use to perform corrections
@@ -364,32 +364,32 @@ if ( $physiofile != "" ) then
   	matlab -nodesktop -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; addpath $MATLAB_EEGLAB_DIR; rw_pmu_siemens('epi_00+orig','$physiofile'); [SN RESP CARD] = RetroTS_CCF_adv('epi_00+orig','card_raw_pmu.dat','resp_raw_pmu.dat'); exit;" 
   	if ( $fastpmucorflag == 1 ) then # afni RETROICOR
     	echo "AFNI RETROICOR is running now." |& tee -a ../${histfile}
-    	3dDetrend \
-    		-polort 1 \
-    		-prefix rm.ricor.1D \
+    	3dDetrend 					\
+    		-polort 1 				\
+    		-prefix rm.ricor.1D 	\
     		RetroTS.PMU.slibase.1D\'
     		
     	1dtranspose rm.ricor.1D ricor_det.1D
     
-    	3dREMLfit \
-    		-input epi_00_errts+orig \
-    		-matrix rm.polort.xmat.1D \
-    		-mask epi_base_mask+orig \
-        	-Obeta epi_00_polort_betas \
+    	3dREMLfit 								\
+    		-input epi_00_errts+orig 			\
+    		-matrix rm.polort.xmat.1D 			\
+    		-mask epi_base_mask+orig 			\
+        	-Obeta epi_00_polort_betas 			\
         	-Oerrts epi_00_errts_retroicor_pmu  \
         	-slibase_sm ricor_det.1D
 
-    	3dSynthesize \
-    		-matrix epi_00_polort.xmat.1D \
-    		-cbucket epi_00_polort_betas+orig \
-    		-select polort \
-    		-prefix temp+orig \
+    	3dSynthesize 							\
+    		-matrix epi_00_polort.xmat.1D 		\
+    		-cbucket epi_00_polort_betas+orig 	\
+    		-select polort 						\
+    		-prefix temp+orig 					\
     		-overwrite
-    	3dcalc \
-    		-a temp+orig \
-    		-b epi_00_errts_retroicor_pmu+orig \
-    		-expr 'a+b' \
-    		-prefix epi_00_retroicor_pmu+orig \
+    	3dcalc 									\
+    		-a temp+orig 						\
+    		-b epi_00_errts_retroicor_pmu+orig 	\
+    		-expr 'a+b' 						\
+    		-prefix epi_00_retroicor_pmu+orig 	\
     		-overwrite
 
     	rm temp+orig* rm.*
@@ -441,14 +441,14 @@ else
 
   	# move PESTICA template mni to EPI space
   	3dAllineate 													\
-  		-prefix ./resp_pestica5.nii 									\
+  		-prefix ./resp_pestica5.nii 								\
   		-source $PESTICA_VOL_DIR/resp_mean_mni_PESTICA5.brain.nii 	\
   		-base epi_00_brain+orig 									\
   		-1Dmatrix_apply mni.coreg.1D 								\
   		-overwrite													
   
   	3dAllineate 													\
-  		-prefix ./card_pestica5.nii 									\
+  		-prefix ./card_pestica5.nii 								\
   		-source $PESTICA_VOL_DIR/card_mean_mni_PESTICA5.brain.nii 	\
   		-base epi_00_brain+orig 									\
   		-1Dmatrix_apply mni.coreg.1D 								\
@@ -509,19 +509,19 @@ if ( -f $iname+orig.HEAD ) then
     set fname = `basename epi_00_brain`
     
     # threshold for cardiac/respiratory coupling is ideally detected from the data itself, but may have to be adjusted manually
-    afni -com "OPEN_WINDOW A.axialimage mont="$montstr":2:0:none opacity=6" 		\
-         -com "SET_UNDERLAY A.$fname+orig.HEAD"       								\
-         -com 'SET_XHAIRS A.OFF' 													\
-         -com "SET_OVERLAY A.$iname+orig.HEAD 1 1"  								\
-         -com "SET_THRESHNEW A 0.01 *p" 											\
-         -com 'SET_PBAR_NUMBER A.12'        										\
-         -com 'SET_FUNC_RANGE A.10' 												\
-         -com "SAVE_JPEG A.axialimage $snamer" 										\
-         -com "SET_OVERLAY A.$iname+orig.HEAD 2 2"  								\
-         -com "SET_THRESHNEW A 0.01 *p" 											\
-         -com 'SET_PBAR_NUMBER A.12'        										\
-         -com 'SET_FUNC_RANGE A.10' 												\
-         -com "SAVE_JPEG A.axialimage $snamec"  									\
+    afni -com "OPEN_WINDOW A.axialimage mont="$montstr":2:0:none opacity=6"	\
+         -com "SET_UNDERLAY A.$fname+orig.HEAD"       						\
+         -com 'SET_XHAIRS A.OFF' 											\
+         -com "SET_OVERLAY A.$iname+orig.HEAD 1 1"  						\
+         -com "SET_THRESHNEW A 0.01 *p" 									\
+         -com 'SET_PBAR_NUMBER A.12'        								\
+         -com 'SET_FUNC_RANGE A.10' 										\
+         -com "SAVE_JPEG A.axialimage $snamer" 								\
+         -com "SET_OVERLAY A.$iname+orig.HEAD 2 2"  						\
+         -com "SET_THRESHNEW A 0.01 *p" 									\
+         -com 'SET_PBAR_NUMBER A.12'        								\
+         -com 'SET_FUNC_RANGE A.10' 										\
+         -com "SAVE_JPEG A.axialimage $snamec"  							\
          -com 'QUIT' 																
 
 else
@@ -555,10 +555,9 @@ echo "++   all together after motion correction " |& tee -a $histfile
 echo "++ Check run_slomoco/volmoco.tcsh in a SLOMOCO package "		|& tee -a $histfile	
 
 if ( $DO_CLEAN == 1 ) then
-    echo "++ Removing the large size of temporary files in working dir: '$wdirn" |& tee -a $histfile
+    echo "++ Removing the large size of temporary files in working dir: '$owdir" |& tee -a $histfile
     echo "++ DO NOT DELETE working directory. " |& tee -a $histfile
     echo "++ Generated physio nuisance regressors are used with motion nuisance. " |& tee -a $histfile
-    echo "++ Removing the large size of temporary files in working dir: '$wdirn" |& tee -a $histfile
     
   	rm -f 	"${owdir}"/epi_00+orig.* 		\
   			"${owdir}"/epi_00_errts+orig.* 	
@@ -597,7 +596,7 @@ Required options:
  
 Optional:
  -dset_mask			 = skull stripped mask 
- -physio		 	 = pmu file prefix for RETROICOR (NOT PESTICA)  
+ -pmu			 	 = pmu file prefix for RETROICOR (NOT PESTICA)  
  -workdir  directory = intermediate output data will be generated in the defined directory.
  -do_clean           = this option will delete the large size of files in working directory 
 
