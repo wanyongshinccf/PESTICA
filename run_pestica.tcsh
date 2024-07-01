@@ -22,12 +22,13 @@ set wdir      = ""
 # --------------------- pestica-specific inputs --------------------
 
 # all allowed slice acquisition keywords
-set epi        = ""   # base 3D+time EPI dataset to use to perform corrections
-set epi_mask   = ""   # (opt) mask dset name
-set jsonfile   = ""   # json file
-set tfile      = ""      # tshiftfile (sec)
-set physiofile = "" # physio file (pmu) for RETROICOR 
-set batchflag  = 0 # default 
+set epi        = ""   	# base 3D+time EPI dataset to use to perform corrections
+set epi_mask   = ""   	# (opt) mask dset name
+set jsonfile   = ""   	# json file
+set tfile      = ""     # tshiftfile (sec)
+set physiofile = "" 	# physio file (pmu) for RETROICOR 
+set ica_comp    = 15 	# Number of PESTICA components
+set batchflag  = 0 		# default 
 set icaflag    = "matlab" # MATLAB or fsl
 set fastpmucorflag = 0 # just for option
 
@@ -103,6 +104,11 @@ while ( $ac <= $#argv )
         if ( $ac >= $#argv ) goto FAIL_MISSING_ARG
         @ ac += 1
         set unsatepi = "$argv[$ac]"
+
+    else if ( "$argv[$ac]" == "-comp" ) then
+        if ( $ac >= $#argv ) goto FAIL_MISSING_ARG
+        @ ac += 1
+        set ica_comp = "$argv[$ac]"
 
     else if ( "$argv[$ac]" == "-workdir" ) then
         if ( $ac >= $#argv ) goto FAIL_MISSING_ARG
@@ -405,7 +411,7 @@ else
 	# PESTICA starts
 	if ( $icaflag == "matlab" ) then
     	echo "Running Stage 1: slicewise temporal Infomax ICA" |& tee -a ../${histfile}
-    	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_EEGLAB_DIR;disp('Wait, script starting...'); prepare_ICA_decomp_polort(15,'epi_00_errts+orig','epi_base_mask+orig'); disp('Stage 1 Done!'); exit;" 
+    	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_EEGLAB_DIR;disp('Wait, script starting...'); prepare_ICA_decomp_polort(${ica_comp},'epi_00_errts+orig','epi_base_mask+orig'); disp('Stage 1 Done!'); exit;" 
 	
 	# Under development, not working yet
   	else if ( $icaflag == "fsl" ) then
@@ -427,17 +433,14 @@ else
 
 	echo "Running Stage 2: Coregistration of EPI to MNI space and back-transform of templates, followed by PESTICA estimation" |& tee -a ../${histfile}
   	# EPI to MNI
-  	if ( ! -f mni.coreg.1D ) then
-    	3dAllineate 										\
-    		-prefix epi_00_brain.crg2mni.nii 				\
-    		-source epi_00_brain+orig 						\
-    		-base $PESTICA_VOL_DIR/meanepi_mni.brain.nii 	\
-    		-1Dmatrix_save epi_00_brain.coreg.mni.1D 		\
-    		-overwrite										
+  	3dAllineate 										\
+    	-prefix epi_00_brain.crg2mni.nii 				\
+    	-source epi_00_brain+orig 						\
+    	-base $PESTICA_VOL_DIR/meanepi_mni.brain.nii 	\
+    	-1Dmatrix_save epi_00_brain.coreg.mni.1D 		\
+    	-overwrite										
     		
-        cat_matvec epi_00_brain.coreg.mni.1D -I -ONELINE > mni.coreg.1D -overwrite
-        
-  	endif
+    cat_matvec epi_00_brain.coreg.mni.1D -I -ONELINE > mni.coreg.1D -overwrite
 
   	# move PESTICA template mni to EPI space
   	3dAllineate 													\
@@ -455,7 +458,7 @@ else
   		-overwrite													
 
  	# run PESTICA
-  	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; disp('Wait, script starting...'); [card,resp]=apply_PESTICA(15,'epi_00_errts+orig','epi_base_mask+orig'); fp=fopen('card_raw_pestica5.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_raw_pestica5.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); disp('Stage 2 Done!'); exit;" 
+  	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; disp('Wait, script starting...'); [card,resp]=apply_PESTICA(${ica_comp},'epi_00_errts+orig','epi_base_mask+orig'); fp=fopen('card_raw_pestica5.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_raw_pestica5.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); disp('Stage 2 Done!'); exit;" 
 	
   	echo "Running Stage 3: Filtering PESTICA estimators, cardiac first, then respiratory" |& tee -a ../$histfile
   	matlab -nodesktop -nosplash -r "addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; load('card_raw_pestica5.dat'); load('resp_raw_pestica5.dat'); disp('Wait, script starting...'); card=view_and_correct_estimator(card_raw_pestica5,'epi_00+orig','c',$batchflag); resp=view_and_correct_estimator(resp_raw_pestica5,'epi_00+orig','r',$batchflag);  fp=fopen('card_pestica5.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_pestica5.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); disp('Stage 3 Done!'); exit;" 

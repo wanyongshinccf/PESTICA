@@ -104,9 +104,9 @@ for z= 1:zdim
         res = errt_norm - (A*p);    RSS = res'*res;
        
         % regress out physiologic noise & trending, but keep the contrast
-        p_errt=p; p(6) = 0; 
+        p(6) = 0; 
         errt_errt = errt_norm - (A*p);
-        errtmap(x,y,z,:) = res*SD;
+        errtmap(x,y,z,:) = errt_errt*SD;
         
         bmap(x,y,z,:) = p(1:5);
         tmap(x,y,z,:) = p(1:5)./std_err(1:5);
