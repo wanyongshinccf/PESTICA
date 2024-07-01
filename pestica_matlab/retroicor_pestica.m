@@ -74,7 +74,7 @@ SN.PhysFS       = samplingrate;
 SN.Quiet=1; 
 SN.Prefix=['RetroTS.PESTICA5']; 
 SN.RVT_out      = 0;
-[SN, RESP, CARD] = RetroTS_ccf_pestica(SN);
+[SN, RESP, CARD] = RetroTS_CCF_pestica(SN);
 
 tmap = zeros(xdim,ydim,zdim,4+1);
 bmap = zeros(xdim,ydim,zdim,4+1);

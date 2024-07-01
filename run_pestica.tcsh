@@ -367,7 +367,7 @@ cd "${owdir}"
 if ( $physiofile != "" ) then
   	set physiofile = "../$physiofile"
   	echo "Reading PMU files of $physiofile " |& tee -a ../${histfile}
-  	matlab -nodesktop -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; addpath $MATLAB_EEGLAB_DIR; rw_pmu_siemens('epi_00+orig','$physiofile'); [SN RESP CARD] = RetroTS_CCF_adv('epi_00+orig','card_raw_pmu.dat','resp_raw_pmu.dat'); exit;" 
+  	matlab -nodesktop -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; addpath $MATLAB_EEGLAB_DIR; rw_pmu_siemens('epi_00+orig','$physiofile'); [SN RESP CARD] = RetroTS_CCF_run('epi_00+orig','card_raw_pmu.dat','resp_raw_pmu.dat'); exit;" 
   	if ( $fastpmucorflag == 1 ) then # afni RETROICOR
     	echo "AFNI RETROICOR is running now." |& tee -a ../${histfile}
     	3dDetrend 					\

@@ -1,4 +1,4 @@
-function [Opt, R, E] = RetroTS_ccf(SN)
+function [Opt, R, E] = RetroTS_CCF(SN)
 %    [Opt, OptR, OptE] = RetroTS(Opt)
 %This function creates slice-based regressors for regressing out
 % components of heart rate, respiration and respiration volume per time.

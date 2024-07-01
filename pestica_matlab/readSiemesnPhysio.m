@@ -1,15 +1,37 @@
 function [fext, fcard,fresp,fecg]=readSiemesnPhysio(fname,TR,samplerate,downsamplerate)
 % this function read PMU data (e.g. **.ext, *.resp, *.card) 
-% created by Wanyong Shin, CCF 20150527
+% created by Wanyong Shin, CCF 20170216
 
 if ~exist('samplerate');      samplerate=400;     end;  % 1/sec
 if ~exist('downsamplerate');  downsamplerate=50;  end;  % 1/sec
 
+% check if physio data exists
+fname_ext =sprintf('%s.ext',fname);
+fname_resp=sprintf('%s.resp',fname);
+fname_card=sprintf('%s.puls',fname);
+
+flag_fname_ext=0;  if exist(fname_ext);  flag_fname_ext=1; end
+flag_fname_resp=0; if exist(fname_resp); flag_fname_resp=1; end
+flag_fname_card=0; if exist(fname_card); flag_fname_card=1; end
+
+if flag_fname_ext == 0
+  disp('Error: external trigger file does not exist');
+  return
+end
+if flag_fname_card == 0
+  disp('Error: cardiac physio file does not exist');
+  return
+end
+if flag_fname_resp == 0
+  disp('Error: repiratory physio file does not exist');
+  return
+end
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 1. triggering
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% trigger file always must exist
-ext = readpmu(sprintf('%s.ext',fname));
+[ext tp_start_ext tp_end_ext] = readpmufile(fname_ext);
 
 % newly added to consider signals from original box
 diffext = diff(ext);
@@ -22,232 +44,87 @@ end
 
 % set trigger point of the first points among trigger block
 ext(find(diff(ext)==1)+1)=10;
-% find the trigger data points (sampling mesh)
 xtrigs=find(ext(1:end)==10);
-
-% find time stamp
-[tp_start tp_end] = readlogtime(sprintf('%s.ext',fname));
-ms_dur_ext = tp_end - tp_start; % [ms]
-
-% set tdim based on number of trigs seen, check if dataset tdims are lower (typically if you 3dcopy or 3dvolreg less vols)
 tdim=length(xtrigs);
 
+% find time stamp
+ms_dur_ext = tp_end_ext - tp_start_ext; % [ms]
 
-% check 
-xlen=length(ext(xtrigs(1):xtrigs(end)-1))/(tdim-1);
-SR_ext = round(xlen/TR);
+% read respiratory pmu
+[resp tp_start_resp tp_end_resp] = readpmufile(fname_resp);
+ms_dur_resp = tp_end_resp - tp_start_resp; % [ms]
+
+% read cardiac pmu
+[card tp_start_card tp_end_card] = readpmufile(fname_card);
+ms_dur_card = tp_end_card - tp_start_card; % [ms]
+
+% check the data quality 
+tp_ext  = round(2*ms_dur_ext/length(ext))/2;   SR_ext  = 1000/tp_ext;
+tp_card = round(2*ms_dur_card/length(card))/2; SR_card = 1000/tp_card;
+tp_resp = round(2*ms_dur_resp/length(resp))/2; SR_resp = 1000/tp_resp;
+
 disp(['Trigger sampling rate is ' num2str(SR_ext) ' Hz'])
 if ~(SR_ext == 400 || SR_ext == 200)
   disp('Warning: external trigger sampling rate is not either of 200Hz(VB) or 400Hz(VD)');
   disp('Trigger file might be corrupted.')
 end
-ms_diff_ext = ms_dur_ext - (length(ext)/SR_ext)*1000; 
-if abs(ms_dur_ext / (length(ext)/SR_ext)/1000 - 1) > 0.01
-  disp('Warning: exterianl trigger MDH time might not be accruate (> 1% discrepancy).')
+disp(['Respiratory sampling rate is ' num2str(SR_resp) ' Hz'])
+if ~(SR_resp == 400 || SR_resp == 50)
+  disp('Warning: respiratory sampling rate is not either of 50Hz(VB) or 400Hz(VD)');
 end
-if abs(ms_diff_ext/1000) > TR
-  disp('Warning: external logging end time might not be accruate ( > TR discrepancy).')
-end
-
-% calculate time point 
-tp_start_ext = tp_start + xtrigs(1)*(1/SR_ext)* 1000; % [ms]
-tp_end_ext   = tp_start + (xtrigs(end)+xlen -1) *(1/SR_ext)* 1000; %[ms]
-
-% take the triggers only from first volume start to last volume END
-fext = ext(xtrigs(1):xtrigs(end)+xlen -1);
-fextlen = int32(TR*tdim*SR_ext);
-
-% sanity checking
-if (fextlen>length(fext))
-  disp(['Warning: length is not as calculated: add ' num2str(fextlen - length(fext)) ' zero point(s) in fext']);
-  fext(end+1:fextlen)=0;
-elseif (fextlen<length(fext))
-  disp(['Warning: length is not as calculated: remove last ' num2str(length(fext) - fextlen) ' point(s) in fext']);
-  fext(fextlen+1:end) = [];
+disp(['Cardiac sampling rate is ' num2str(SR_card) ' Hz'])
+if ~(SR_card == 400 || SR_card == 50)
+  disp('Warning: cardiac sampling rate is not either of 50Hz(VB) or 400Hz(VD)');
 end
 
-fext(find(fext<10))=0;
-fext(find(fext==10))=1;
+% note that ms_dur_ext/length(ext) should be integer, but it is not in
+% reality. Assume the starting time point is correct, not consider the end
+% time point
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 2. respiratory signal
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-respflag=0;
-fnamer=sprintf('%s.resp',fname);
-if (exist(fnamer)~=0)
- respflag=1;
- [resp respp] = readpmu(fnamer);
- resppeak = zeros(size(resp));
- resppeak(respp)=10;
- [tp_start_resp tp_end_resp] = readlogtime(fnamer);
-  ms_dur_resp = tp_end_resp - tp_start_resp;
+% retiming of external trigger signal
+ttable_ext  = 0:tp_ext:(length(ext)-1)*tp_ext;
+ttable_card = 0:tp_card:(length(card)-1)*tp_card;
+ttable_card = ttable_card + tp_start_card - tp_start_ext;
+ttable_resp = 0:tp_resp:(length(resp)-1)*tp_resp;
+ttable_resp = ttable_resp + tp_start_resp - tp_start_ext;
+
+TRms = TR*1000;
+tp_TR = TRms/tp_ext;
+ttable_TR = 0:tp_ext:(tp_TR-1)*tp_ext;
+
+if ~length(find(ttable_card > ttable_ext(xtrigs(end)) + (tp_TR-1)*tp_ext))
+  addtp = round((ttable_ext(xtrigs(end)) + (tp_TR-1)*tp_ext - ttable_card(end)) / tp_card) + 10;
+  ttable_card(end:end+addtp) = ttable_card(end):tp_card:ttable_card(end)+addtp*tp_card;
+  card(end+1:end+addtp) = mean(card);
+end
+if ~length(find(ttable_resp > ttable_ext(xtrigs(end)) + (tp_TR-1)*tp_ext))
+  addtp = round((ttable_ext(xtrigs(end)) + (tp_TR-1)*tp_ext - ttable_resp(end)) / tp_resp) + 10;
+  ttable_resp(end:end+addtp) = ttable_resp(end):tp_resp:ttable_resp(end)+addtp*tp_resp;
+  resp(end+1:end+addtp) = mean(resp);
+end
+
+ext_ext=[];card_ext=[];resp_ext=[];
+for n=1:length(xtrigs)
+  ttable_TR =  [0:tp_ext:(tp_TR-1)*tp_ext] + ttable_ext(xtrigs(n));  
+  ext_ext =  [ext_ext ones(1,SR_ext/downsamplerate) zeros(1,tp_TR-SR_ext/downsamplerate)];
+  card_ext = [card_ext pchip(ttable_card,card,ttable_TR)];
+  resp_ext = [resp_ext pchip(ttable_resp,resp,ttable_TR)];
+end
   
-  % check 
-  SR_resp = round(length(resp) / ms_dur_resp*1000/50)*50;
-  disp(['Respiratory sampling rate is ' num2str(SR_resp) ' Hz'])
-  if ~(SR_resp == 400 || SR_resp == 50)
-    disp('Warning: respiratory sampling rate is not either of 50Hz(VB) or 400Hz(VD)');
-  end
-  fresplen = int32(TR*tdim*SR_resp);
-  ms_diff_resp = ms_dur_resp - (length(resp)/SR_resp)*1000; 
-  if abs(ms_dur_resp/(length(resp)/SR_resp)/1000 -1) > 0.01
-    disp('Warning: respiratory MDH time might not be accruate (> 1% discrepancy).')
-  end
-  if abs(ms_diff_resp/1000) > TR
-    disp('Warning: respiratory logging end time might not be accruate ( > TR discrepancy).')
-  end
-end
-
-if (respflag)
-  % calculate time point 
-  X = tp_start_resp: 1/SR_resp*1000 : tp_end_resp + 5*1000*TR ; % add extra 10 points
-  X = X(1:length(resp));
-  
-  XX = tp_start_ext: 1/SR_resp*1000 :  tp_end_ext + 5*1000*TR; % add extra 10 pts
-  XX = XX(1:fresplen);
-
-  fresp=pchip(X,resp,XX);
-  fresppeak = pchip(X,resppeak,XX);
-else
-  fresp=zeros(1,extlen);
-  fresppeak=zeros(1,extlen);
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 3. cardiac signal
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-cardflag=0;
-fnamec=sprintf('%s.puls',fname);
-if (exist(fnamec)~=0)
-  cardflag=1;
-  [card cardp] = readpmu(fnamec);
-  cardpeak = zeros(size(card));
-  cardpeak(cardp)=10;
-  [tp_start_card tp_end_card] = readlogtime(fnamec);
-  ms_dur_card = tp_end_card - tp_start_card;
-  
-  % check 
-  SR_card = round(length(card) / ms_dur_card*1000/50)*50;
-  disp(['Cardiac sampling rate is ' num2str(SR_card) ' Hz'])
-  
-  if ~(SR_card == 400 || SR_card == 50)
-    disp('Warning: Cardiac sampling rate is not either of 50Hz(VB) or 400Hz(VD)');
-  end
-  fcardlen = int32(TR*tdim*SR_card);
-  ms_diff_card = ms_dur_card - (length(card)/SR_card)*1000; 
-  if abs(ms_dur_card/(length(card)/SR_card)/1000 -1) > 0.010
-    disp('Warning: cardiac MDH time might not be accruate (> 1% discrepancy).')
-  end
-  if abs(ms_diff_card/1000) > TR
-    disp('Warning: cardiac logging end time might not be accruate ( > TR discrepancy).')
-  end
-end
-
-if (cardflag)
-  % calculate time point 
-  X = tp_start_card: 1/SR_card*1000 :tp_end_card + 5*1000*TR; % add extra 10 points
-  X = X(1:length(card));
-  
-  XX = tp_start_ext: 1/SR_card*1000: tp_end_ext + 5*1000*TR; % add extra 10 pts
-  XX = XX(1:fcardlen);
-
-  fcard=pchip(X,card,XX);
-  fcardpeak =pchip(X,cardpeak,XX);
-else
-  fcard=zeros(1,extlen);
-  fcardpeak =zeros(1,extlen);
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 4. ecg signal
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-ecgflag=0;
-fnamec=sprintf('%s.ecg',fname);
-if (exist(fnamec)==0)
-  ecgflag=0;
-  % no ecg data here %
-else
-  fecg=zeros(1,fextlen);
-end
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 % downsampl, if necesary %
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 if SR_ext ~= downsamplerate
-  disp('')
   disp(['fext is downsamled with ' num2str(downsamplerate) 'Hz.'])
-  disp('')
 end
-fext = fext(1:SR_ext/downsamplerate:end);
-  
-if respflag
-  if SR_resp ~= downsamplerate
-    disp('')
-    disp(['fresp is downsamled with ' num2str(downsamplerate) 'Hz.'])
-    disp('')
-  end
-  fresp = fresp(1:SR_resp/downsamplerate:end);
-end
-if cardflag
-  if SR_card ~= downsamplerate
-    disp(['fcard is downsamled with ' num2str(downsamplerate) 'Hz.'])
-    disp('')
-  end
-  fcard = fcard(1:SR_card/downsamplerate:end);
-end
+fext  = ext_ext(1:SR_ext/downsamplerate:end);
+fcard = card_ext(1:SR_ext/downsamplerate:end);
+fresp = resp_ext(1:SR_ext/downsamplerate:end);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % additionally, normalization %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-mf=mean(fcard);
-fcard=(fcard-mf)/std(fcard);
-mf=mean(fresp);
-fresp=(fresp-mf)/std(fresp);
-if (ecgflag)
- mf=mean(fecg1);
- fecg1=(fecg1-mf)/std(fecg1);
- mf=mean(fecg2);
- fecg2=(fecg2-mf)/std(fecg2);
- mf=mean(fecg3);
- fecg3=(fecg3-mf)/std(fecg3);
-end
-
-function [pmu pmupeak] = readpmu(fname)
-temp=textread(fname,'%s', 'delimiter','\n', 'bufsize', 800000);
-pmustr = temp{1};
-strstart = strfind(pmustr,'5002');
-strend   = strfind(pmustr,'6002');
-if length(strstart) == length(strend)
-  for n = length(strstart):-1:1
-    pmustr(strstart(n):strend(n)+4)=[];
-  end
-else  
-  disp('No string is added')
-end
-pmu=str2num(pmustr);
-
-% remove four words and last word
-pmu = pmu(5:end-1);
-% remove artificial trigs
-pmupeak = find(pmu>4099);
-pmupeak = pmupeak - [1:length(pmupeak)];
-
-pmu = pmu(find(pmu<4097));
-
-function [tp_start1 tp_end1 tp_start2 tp_end2 ] = readlogtime(fname)
-pmustr=textread(fname,'%s', 'delimiter','\n', 'bufsize', 800000);
-tmp = pmustr{find(strncmpi(pmustr,'LogStartMDHTime',15))};
-tmp(1:strfind(tmp,':'))=[];
-tp_start1 = str2num(tmp);
-tmp = pmustr{find(strncmpi(pmustr,'LogStopMDHTime',14))};
-tmp(1:strfind(tmp,':'))=[];
-tp_end1 = str2num(tmp);
-
-tmp = pmustr{find(strncmpi(pmustr,'LogStartMPCUTime',16))};
-tmp(1:strfind(tmp,':'))=[];
-tp_start2 = str2num(tmp);
-tmp = pmustr{find(strncmpi(pmustr,'LogStopMPCUTime',15))};
-tmp(1:strfind(tmp,':'))=[];
-tp_end2 = str2num(tmp);
-
+% mf=mean(fcard);
+% fcard=(fcard-mf)/std(fcard);
+% mf=mean(fresp);
+% fresp=(fresp-mf)/std(fresp);
