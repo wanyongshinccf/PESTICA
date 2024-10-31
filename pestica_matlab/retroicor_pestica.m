@@ -160,7 +160,7 @@ ainfo.BRICK_KEYWORDS = [];
 OptOut.Scale = 0;
 OptOut.OverWrite= 'y';
 OptOut.verbose = 0;
-OptOut.Prefix = [ep2d_filename(1:strfind(ep2d_filename,'+')-1) '.retroicor_pestica'];  
+OptOut.Prefix = [ep2d_filename(1:strfind(ep2d_filename,'+')-1) '_retroicor_pestica'];  
 [err,ErrMessage,InfoOut]=WriteBrik(errtmap,ainfo,OptOut);
 
 % generated bucket files
@@ -178,7 +178,7 @@ binfo.BRICK_LABS=[binfo.BRICK_LABS '~Resp_Coef~Resp_Tstat~CardSin#0_Coef~CardSin
 binfo.BRICK_STATAUX = [0 4 2 5 (tdim-size(A,2)) 1 4 2 1 (tdim-size(A,2)) 2 4 2 4 (tdim-size(A,2))...
                        4 3 1 (tdim-size(A,2)) 6 3 1 (tdim-size(A,2))  8 3 1 (tdim-size(A,2)) ...
                        10 3 1 (tdim-size(A,2)) 12 3 1 (tdim-size(A,2)) ];
-OptOut.Prefix = [ep2d_filename(1:strfind(ep2d_filename,'+')-1) '.retroicor_pestica.bucket'];  
+OptOut.Prefix = [ep2d_filename(1:strfind(ep2d_filename,'+')-1) '_retroicor_pestica.bucket'];  
 [err,ErrMessage,InfoOut]=WriteBrik(bucket,binfo,OptOut);
 
 % below is for the calculation of residual sum of squares in each model.
@@ -188,6 +188,6 @@ if pesticaQAflag
   % keep same format as input data
   binfo.BRICK_TYPES=3*ones(1,4); % 1=short, 3=float 
   binfo.BRICK_LABS=['RSS~RSSr~RSSc~RSSp'];
-  OptOut.Prefix = [ep2d_filename(1:strfind(ep2d_filename,'+')-1) '.retroicor_pestica.RSS'];  
+  OptOut.Prefix = [ep2d_filename(1:strfind(ep2d_filename,'+')-1) '_retroicor_pestica.RSS'];  
   [err,ErrMessage,InfoOut]=WriteBrik(rmap,binfo,OptOut);
 end
