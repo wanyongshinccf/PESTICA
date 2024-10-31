@@ -2,6 +2,8 @@
 
 set version   = "0.0";  set rev_dat   = "Jun 3, 2024"
 # + tcsh version of Wanyong Shin's PESTICA program
+set version   = "1.0"; set rev_dat = "Oct 31, 2024"
+# Project to switch matlab to AFNI and python (W.S)
 #
 # ----------------------------------------------------------------
 
@@ -22,15 +24,17 @@ set wdir      = ""
 # --------------------- pestica-specific inputs --------------------
 
 # all allowed slice acquisition keywords
-set epi        = ""   	# base 3D+time EPI dataset to use to perform corrections
-set epi_mask   = ""   	# (opt) mask dset name
-set jsonfile   = ""   	# json file
-set tfile      = ""     # tshiftfile (sec)
-set physiofile = "" 	# physio file (pmu) for RETROICOR 
-set ica_comp    = 15 	# Number of PESTICA components
-set batchflag  = 0 		# default 
-set icaflag    = "matlab" # MATLAB or fsl
-set fastpmucorflag = 0 # just for option
+set epi         = ""        # base 3D+time EPI dataset to use to perform corrections
+set epi_mask    = ""        # (opt) mask dset name
+set jsonfile    = ""        # json file
+set tfile       = ""        # tshiftfile (sec)
+set physiofile  = ""        # physio file (pmu) for RETROICOR 
+set ica_comp    = 15        # Number of PESTICA components
+set batchflag   = 0         # default 
+set icaflag     = "MATLAB"  # MATLAB or PYTYON
+set retflag     = "MATLAB"  # MATLAB or AFNI
+set regflag     = "AFNI"    # MATLAB or AFNI
+set qaflag      = "MATLAB"  # MATLAB or PYTHON
 
 set DO_CLEAN     = 0                       # default: keep working dir
 
@@ -341,95 +345,100 @@ endif
 cd "${owdir}"
 
 # tissue masked brain
-3dcalc -a epi_00+orig'[0]' 	\
-	-b epi_base_mask+orig 	\
-	-expr 'a*step(b)' 		\
-	-prefix epi_00_brain	\
-	-overwrite				
+3dcalc                      \
+    -a epi_00+orig'[0]'     \
+    -b epi_base_mask+orig   \
+    -expr 'a*step(b)'       \
+    -prefix epi_00_brain    \
+    -overwrite
 
 # polynomial detrending matrix
-3dDeconvolve 			\
-	-polort A 			\
-	-input epi_00+orig 	\
-	-x1D_stop 			\
-	-x1D polort_xmat.1D	
-	
+3dDeconvolve            \
+    -polort A           \
+    -input epi_00+orig 	\
+    -x1D_stop           \
+    -x1D polort_xmat.1D
+
 # detrending	
-3dREMLfit						\
- 	-input epi_00+orig			\
-	-matrix polort_xmat.1D 		\
-	-mask epi_base_mask+orig 	\
-    -Oerrts epi_00_errts 		\
-    -overwrite					
-    
+3dREMLfit                       \
+    -input  epi_00+orig         \
+    -matrix polort_xmat.1D      \
+    -mask   epi_base_mask+orig  \
+    -Oerrts epi_00_errts        \
+    -overwrite	
+
+# remove the text from the start    
 1dcat polort_xmat.1D > rm.polort_xmat.1D 
 
+
 if ( $physiofile != "" ) then
-  	set physiofile = "../$physiofile"
-  	echo "Reading PMU files of $physiofile " |& tee -a ../${histfile}
-  	matlab -nodesktop -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; addpath $MATLAB_EEGLAB_DIR; rw_pmu_siemens('epi_00+orig','$physiofile'); [SN RESP CARD] = RetroTS_CCF_run('epi_00+orig','card_raw_pmu.dat','resp_raw_pmu.dat'); exit;" 
-  	if ( $fastpmucorflag == 1 ) then # afni RETROICOR
-    	echo "AFNI RETROICOR is running now." |& tee -a ../${histfile}
-    	3dDetrend 					\
-    		-polort 1 				\
-    		-prefix rm.ricor.1D 	\
-    		RetroTS.PMU.slibase.1D\'
-    		
-    	1dtranspose rm.ricor.1D ricor_det.1D
+    # RETROICOR starts
+    set physiofile = "../$physiofile"
+    echo "Reading PMU files of $physiofile " |& tee -a ../${histfile}
     
-    	3dREMLfit 								\
-    		-input epi_00_errts+orig 			\
-    		-matrix rm.polort.xmat.1D 			\
-    		-mask epi_base_mask+orig 			\
-        	-Obeta epi_00_polort_betas 			\
-        	-Oerrts epi_00_errts_retroicor_pmu  \
-        	-slibase_sm ricor_det.1D
+    # read pmu data and saved it as RetroTS.PMU.slibase.1D
+    # will be replaced with a python version.
+    matlab -nodesktop -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; rw_pmu_siemens('epi_00+orig','$physiofile'); [SN RESP CARD] = run_RetroTS('epi_00+orig','card_raw_pmu.dat','resp_raw_pmu.dat'); exit;" 
+       
 
-    	3dSynthesize 							\
-    		-matrix epi_00_polort.xmat.1D 		\
-    		-cbucket epi_00_polort_betas+orig 	\
-    		-select polort 						\
-    		-prefix temp+orig 					\
-    		-overwrite
-    	3dcalc 									\
-    		-a temp+orig 						\
-    		-b epi_00_errts_retroicor_pmu+orig 	\
-    		-expr 'a+b' 						\
-    		-prefix epi_00_retroicor_pmu+orig 	\
-    		-overwrite
+    if ( $regflag == "MATLAB" ) then
+  	    matlab -nodesktop -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; load RetroTS.PMU.mat; [RESP CARD] = retroicor_pmu('epi_00+orig','epi_base_mask+orig',SN, CARD, RESP,'rm.polort_xmat.1D'); exit;" 
+  	else if ( $regflag == "AFNI" ) then
+        echo "++ AFNI RETROICOR is running now." |& tee -a ../${histfile}
+        echo " We recommend to regress-out physio AND motion nuisancce regressor TOGETHER. "
+        echo " However, we provide RETROICOR corrected output here." 
 
-    	rm temp+orig* rm.*
+        # demean and linear detrend here
+        3dDetrend                   \
+            -polort 1               \
+            -prefix rm.ricor.1D     \
+            -overwrite              \
+            RetroTS.PMU.slibase.1D\'
+
+        1dtranspose rm.ricor.1D ricor_det.1D
+    
+        3dREMLfit                                   \
+            -input      epi_00+orig                 \
+            -matrix     polort_xmat.1D              \
+            -mask       epi_base_mask+orig          \
+            -Obeta      epi_00_polort_betas         \
+            -Oerrts     epi_00_errts_retroicor_pmu  \
+            -slibase_sm ricor_det.1D                \
+            -overwrite
+    
+        3dcalc                                      \
+            -a      epi_00_brain+orig               \
+            -b      epi_00_errts_retroicor_pmu+orig \
+            -expr   'a+b'                           \
+            -prefix epi_00_retroicor_pmu+orig       \
+            -overwrite
+
+        \rm -f epi_00_errts_retroicor_pmu+orig.* rm.*
 
   	else
-    	echo "Matlab version of RETROICOR is running now." |& tee -a ../${histfile}
-    	echo "It provides PMU quality assurance and RETRROICOR fitting results." |& tee -a ../${histfile}
-    	echo "If you do not need them, set fastpmucorflag to 1 in run_pestica.tcsh." |& tee -a ../${histfile}
-    	matlab -nodesktop -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; addpath $MATLAB_EEGLAB_DIR; load RetroTS.PMU.mat; [RESP CARD] = retroicor_pmu('epi_00+orig','epi_base_mask+orig',SN, CARD, RESP,'rm.polort_xmat.1D'); exit;" 
-  	endif
+        echo " Error: regflag should be either MATLAB or AFNI " |& tee -a ${histfile}
+        goto BAD_EXIT
+
+    endif
 
 else
 	# PESTICA starts
-	if ( $icaflag == "matlab" ) then
+	if ( $icaflag == "MATLAB" ) then
     	echo "Running Stage 1: slicewise temporal Infomax ICA" |& tee -a ../${histfile}
     	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_EEGLAB_DIR;disp('Wait, script starting...'); prepare_ICA_decomp_polort(${ica_comp},'epi_00_errts+orig','epi_base_mask+orig'); disp('Stage 1 Done!'); exit;" 
 	
 	# Under development, not working yet
-  	else if ( $icaflag == "fsl" ) then
-    	echo there1
-		set dims = `3dAttribute DATASET_DIMENSIONS epi_00+orig`
-		set zdim = ${dims[3]}                           # tcsh uses 1-based counting
-		@   zcount  = ${zdim} - 1
+  	else if ( $icaflag == "PYTHON" ) then
+    	echo " working in progress = not working now "
+        python ajunct_slice_ica.py \
+            -epi epi_00+orig \
+            -comp 15 \
 
-		foreach z ( `seq 0 1 ${zcount}` )
-  			3dZcutup -keep $z $z -prefix epi_01.sli."${z}".nii epi_01+orig 
-  			3dZcutup -keep $z $z -prefix epi_mask.sli."${z}".nii epi_base_mask+orig 
-  
-  			# ICA here
-  			melodic -i epi_01.sli."${z}".nii -m epi_mask.sli."${z}".nii --report
-  
-		end  # end of t loop 
-  
-  	endif
+    else
+        echo "** ERROR: icaflag should be either MATLAB or PYTHON." |& tee -a ${histfile}
+        goto BAD_EXIT	
+
+    endif
 
 	echo "Running Stage 2: Coregistration of EPI to MNI space and back-transform of templates, followed by PESTICA estimation" |& tee -a ../${histfile}
   	# EPI to MNI
@@ -470,12 +479,12 @@ endif
 
 
 if ( $physiofile == "" ) then
-    set iname  = epi_00.retroicor_pestica.bucket
+    set iname  = epi_00_retroicor_pestica.bucket
     set snamec = Coupling_retroicor_pestica_Card
     set snamer = Coupling_retroicor_pestica_Resp
     
 else
-    set iname  = epi_00.retroicor_pmu.bucket
+    set iname  = epi_00_retroicor_pmu.bucket
     set snamec = Coupling_retroicor_pmu_Card
     set snamer = Coupling_retroicor_pmu_Resp
     
@@ -486,13 +495,6 @@ if ( -f $iname+orig.HEAD ) then
     echo "" 
     echo "Running Stage 5: Make QA maps" |& tee -a ../$histfile
     echo "" 
-    echo " **********************************************" 
-    echo " **********************************************" 
-    echo " AFNI IS ABOUT TO STEAL WINDOW FOCUS "
-    echo " wait til this script ends in a few seconds " 
-    echo " it will end at same time as last AFNI ends "
-    echo " **********************************************"
-    echo " **********************************************"
     
     # change this if the plots always give a poor view of the slices - slice 20 in AFNI is reasonable for most acquisitions
     set dims = `3dAttribute DATASET_DIMENSIONS epi_00+orig`
@@ -510,49 +512,37 @@ if ( -f $iname+orig.HEAD ) then
     endif
       
     set fname = `basename epi_00_brain`
-    
-    # threshold for cardiac/respiratory coupling is ideally detected from the data itself, but may have to be adjusted manually
-#    afni -com "OPEN_WINDOW A.axialimage mont="$montstr":2:0:none opacity=6"	\
-#         -com "SET_UNDERLAY A.$fname+orig.HEAD"       						\
-#         -com 'SET_XHAIRS A.OFF' 											\
-#         -com "SET_OVERLAY A.$iname+orig.HEAD 1 1"  						\
-#         -com "SET_THRESHNEW A 0.01 *p" 									\
-#         -com 'SET_PBAR_NUMBER A.12'        								\
-#         -com 'SET_FUNC_RANGE A.10' 										\
-#         -com "SAVE_JPEG A.axialimage $snamer" 								\
-#         -com "SET_OVERLAY A.$iname+orig.HEAD 2 2"  						\
-#         -com "SET_THRESHNEW A 0.01 *p" 									\
-#         -com 'SET_PBAR_NUMBER A.12'        								\
-#         -com 'SET_FUNC_RANGE A.10' 										\
-#         -com "SAVE_JPEG A.axialimage $snamec"  							\
-#         -com 'QUIT' 
          
-     @chauffeur_afni 	\
-     	-ulay $fname+orig \
-     	-olay $iname+orig \
-     	-func_range 10 \
-     	-thr_olay_p2stat 0.01 \
-     	-thr_olay_pside 2sided \
-     	-set_xhairs OFF \
-     	-montx $mont -monty $mont -montgap 2 \
-     	-set_subbricks -1 1 1 \
-     	-prefix __tmp_resp	\
-     	-no_cor -no_sag -do_clean 
-     mv __tmp_resp.axi.png $snamer.png
+    @chauffeur_afni                 \
+        -ulay $fname+orig           \
+        -olay $iname+orig           \
+        -func_range 10              \
+        -thr_olay_p2stat 0.01       \
+        -thr_olay_pside 2sided      \
+        -set_xhairs OFF             \
+        -montx $mont -monty $mont   \
+        -montgap 2                  \
+        -set_subbricks -1 1 1       \
+        -prefix __tmp_resp          \
+        -no_cor -no_sag             \
+        -do_clean 
+    \mv __tmp_resp.axi.png $snamer.png
       
-     @chauffeur_afni 	\
-     	-ulay $fname+orig \
-     	-olay $iname+orig \
-     	-func_range 10 \
-     	-thr_olay_p2stat 0.01 \
-     	-thr_olay_pside 2sided \
-     	-set_xhairs OFF \
-     	-montx 3 -monty 3 -montgap 2 \
-     	-set_subbricks -1 2 2 \
-     	-prefix __tmp_card	\
-     	-no_cor -no_sag -do_clean 
-     mv __tmp_card.axi.png $snamec.png
-																
+    @chauffeur_afni                 \
+        -ulay $fname+orig           \
+        -olay $iname+orig           \
+        -func_range 10              \
+        -thr_olay_p2stat 0.01       \
+        -thr_olay_pside 2sided      \
+        -set_xhairs OFF             \
+        -montx 3 -monty 3           \
+        -montgap 2                  \
+        -set_subbricks -1 2 2       \
+        -prefix __tmp_card          \
+        -no_cor -no_sag             \
+        -do_clean 
+    \mv __tmp_card.axi.png $snamec.png
+							
 else
     echo SKIP Step5 $iname+orig.BRIK does not exist. |& tee -a ../$histfile
 endif
@@ -566,14 +556,14 @@ set whereout = $PWD
 echo "++ Saving physiologic noise corrected EPI dataset is saved with $prefix " |& tee -a $histfile
 if ( $physiofile == "" ) then
 	3dcalc 													\
-		-a "${owdir}"/epi_00.retroicor_pestica+orig	\
+		-a "${owdir}"/epi_00_retroicor_pestica+orig	\
 		-expr 'a' 											\
 		-prefix ./"${prefix}" 								\
 		-overwrite 		
 	echo "++ However, you might not need a $prefix file but $owdir/RetroTS.PESTICA5.slibase.1D " |& tee -a $histfile								
 else
 	3dcalc  												\
-		-a 	"${owdir}"/epi_00.retroicor_pmu+orig 		\
+		-a 	"${owdir}"/epi_00_retroicor_pmu+orig 		\
 		-expr 'a' 											\
 		-prefix ./"${prefix}" 								\
 		-overwrite 	 
@@ -588,8 +578,9 @@ if ( $DO_CLEAN == 1 ) then
     echo "++ DO NOT DELETE working directory. " |& tee -a $histfile
     echo "++ Generated physio nuisance regressors are used with motion nuisance. " |& tee -a $histfile
     
-  	rm -f 	"${owdir}"/epi_00+orig.* 		\
-  			"${owdir}"/epi_00_errts+orig.* 	
+  	\rm -f 	"${owdir}"/epi_00+orig.* 		\
+  			"${owdir}"/epi_00_errts+orig.* 	\
+            "${owdir}"/epi_00_retroicor_*
     
 endif
 
@@ -612,24 +603,22 @@ PESETICA: physsiologoc noise esitmator using temporal ICA
 run_pestica.tcsh [option] 
 
 Required options:
- -dset_epi input     = input data is non-motion corrected 4D EPI images. 
+    -dset_epi input     = input data is non-motion corrected 4D EPI images. 
                        DO NOT apply any motion correction on input data.
-                       It is not recommended to apply physiologic noise correction on the input data
-                       Physiologoc noise components can be regressed out with -phyio option 
- -tfile 1Dfile       = 1D file is slice acquisition timing info.
+    -tfile 1Dfile       = 1D file is slice acquisition timing info.
                        For example, 5 slices, 1s of TR, ascending interleaved acquisition
                        [0 0.4 0.8 0.2 0.6]
-      or 
- -jsonfile jsonfile  = json file from dicom2nii(x) is given
- -prefix output      = output filename
+    or 
+    -jsonfile jsonfile  = json file from dicom2nii(x) is given
+    -prefix output      = output filename
  
 Optional:
- -dset_mask	input	 = skull stripped mask 
- -pmu	input	 	 = pmu file prefix for RETROICOR (NOT PESTICA)  
- -workdir  directory = intermediate output data will be generated in the defined directory.
- -auto				 = batch mode. Auto selection of the estimated cardiac and respiratory
- 					   frequency band filtering.
- -do_clean           = this option will delete the large size of files in working directory 
+    -dset_mask  input	= skull stripped mask 
+    -pmu    input       = pmu file prefix for RETROICOR (NOT PESTICA)  
+    -workdir directory  = intermediate output data will be generated in the defined directory.
+    -auto               = batch mode. Auto selection of the estimated cardiac and respiratory
+                          frequency band filtering.
+    -do_clean           = this option will delete the large size of files in working directory 
 
 EOF
 
