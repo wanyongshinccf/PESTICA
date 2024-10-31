@@ -1,7 +1,10 @@
 function [Opt, R, E] = RetroTS_CCF(SN)
-%    [Opt, OptR, OptE] = RetroTS(Opt)
+%    [Opt, OptR, OptE] = RetroTS_CCF(Opt)
 %This function creates slice-based regressors for regressing out
 % components of heart rate, respiration and respiration volume per time.
+% Most of codes are identical to RetroTS.m from matlab_afni, but one line 
+% search with "W.S"
+% modification due to SMS acquisition compatibility
 %
 %  Opt is the options structure with the following fields
 %     Mandatory:
@@ -206,7 +209,7 @@ else,
    end
 
    if (isfield(Opt,'SliceOrder'))
-      % Opt.SliceOffset=zeros(Opt.Nslices,1);
+      % Opt.SliceOffset=zeros(Opt.Nslices,1); % (W.S)
       if(strcmpi(Opt.SliceOrder,'alt+z'))
          for (i=1:2:Opt.Nslices),
             Opt.SliceOffset(i) = tt; tt = tt+dtt;
