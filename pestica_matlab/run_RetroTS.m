@@ -25,28 +25,43 @@ resp_raw = load(respfname);
 samplingrate = length(resp_raw)/TRsec/tdim;
 
 % calculate phase using RetroTS,
-if sum(std(resp_raw)) ~= 0
-  SN.Respfile     = respfname;
-end
-if sum(std(card_raw)) ~= 0
-  SN.Cardfile     = cardfname;
-end
-SN.ShowGraphs   = 0; 
-SN.VolTR        = ainfo.TAXIS_FLOATS(2); 
-SN.Nslices      = zdim; 
+
+Opts.ShowGraphs   = 0; 
+Opts.VolTR        = ainfo.TAXIS_FLOATS(2); 
+Opts.Nslices      = zdim; 
 if exist('tshiftfile.1D')
-  SN.SliceOffset  = load('tshiftfile.1D');
+  Opts.SliceOffset  = load('tshiftfile.1D');
   disp('Slice acquistion timing info is read from tshiftfile.1D')
 else
-  SN.SliceOffset  = ainfo.TAXIS_OFFSETS;
+  Opts.SliceOffset  = ainfo.TAXIS_OFFSETS;
   disp('Slice acquistion timing info is read from the header')
 end
-SN.SliceOrder   = 'Custom';
-SN.PhysFS       = samplingrate; 
-SN.Quiet        = 1; 
-SN.Prefix       = ['RetroTS.PMU'];
-SN.RVT_out      = 0; % note no RVT here, feel free to modify it
-[SN, RESP, CARD] = RetroTS_CCF(SN);
+Opts.SliceOrder   = 'Custom';
+Opts.PhysFS       = samplingrate; 
+Opts.Quiet        = 1; 
+Opts.Prefix       = ['RetroTS.PMU'];
+Opts.RVT_out      = 0; % note no RVT here, feel free to modify it
+
+% copy Card and Resp options without card/resp file name
+CardOpts = Opts;
+RespOpts = Opts;
+
+if sum(std(resp_raw)) ~= 0
+  RespOpts.Respfile     = respfname;
+  [SN, RESP, CARD] = RetroTS_CCF(RespOpts);
+  system('mv RetroTS.PMU.slibase.1D RetroTS.Resp.slibase.1D')
+  Opts.Respfile     = respfname;
+end
+if sum(std(card_raw)) ~= 0
+  CardOpts.Cardfile     = cardfname;
+  [SN, RESP, CARD] = RetroTS_CCF(CardOpts);
+  system('mv RetroTS.PMU.slibase.1D RetroTS.Card.slibase.1D')
+  Opts.Cardfile     = cardfname;
+end
+
+% save all
+[SN, RESP, CARD] = RetroTS_CCF(Opts);
+
 
 if sum(std(card_raw)) ~= 0
   cardRF = zeros(length(CARD.tntrace)-1,100);
