@@ -146,10 +146,15 @@ end
 
 # define SLOMOCO directory
 set fullcommand = "$0"
+set fullcommandlines = "$argv"
 setenv PESTICA_DIR `dirname "${fullcommand}"`
+setenv MATLAB_PESTICA_DIR  $PESTICA_DIR/pestica_matlab
+setenv MATLAB_EEG_DIR      $PESTICA_DIR/eeglab
+setenv MATLAB_AFNI_DIR     $PESTICA_DIR/afni_matlab
 
 # initialize a log file
 echo "" >> $histfile
+echo $fullcommand $fullcommandlines >> $histfile
 date >> $histfile
 echo "" >> $histfile
 
@@ -393,19 +398,149 @@ if ( $physiofile != "" ) then
             -polort 1               \
             -prefix rm.ricor.1D     \
             -overwrite              \
+            RetroTS.CARD.slibase.1D\'
+        1dtranspose rm.ricor.1D card_det.1D
+    
+        3dDetrend                   \
+            -polort 1               \
+            -prefix rm.ricor.1D     \
+            -overwrite              \
+            RetroTS.Resp.slibase.1D\'
+        1dtranspose rm.ricor.1D resp_det.1D
+    
+        3dDetrend                   \
+            -polort 1               \
+            -prefix rm.ricor.1D     \
+            -overwrite              \
             RetroTS.PMU.slibase.1D\'
-
         1dtranspose rm.ricor.1D ricor_det.1D
     
+        # poly det model: polynomial fit only
         3dREMLfit                                   \
             -input      epi_00+orig                 \
             -matrix     polort_xmat.1D              \
             -mask       epi_base_mask+orig          \
             -Obeta      epi_00_polort_betas         \
+            -Oerrts     epi_00_errts_polort         \
+            -overwrite
+
+        # Card model: polynomial A + 4 cardiac regressors
+        3dREMLfit                                   \
+            -input      epi_00+orig                 \
+            -matrix     polort_xmat.1D              \
+            -mask       epi_base_mask+orig          \
+            -Obeta      epi_00_card_betas      \
+            -Oerrts     epi_00_errts_card_pmu  \
+            -slibase_sm card_det.1D                \
+            -overwrite
+
+        # Reso model: polynomial A + 4 Resp regressors   
+        3dREMLfit                                   \
+            -input      epi_00+orig                 \
+            -matrix     polort_xmat.1D              \
+            -mask       epi_base_mask+orig          \
+            -Obeta      epi_00_resp_betas      \
+            -Oerrts     epi_00_errts_resp_pmu  \
+            -slibase_sm resp_det.1D                \
+            -overwrite
+
+        # full model: polynomial A, 8 Retroicor regressors   
+        3dREMLfit                                   \
+            -input      epi_00+orig                 \
+            -matrix     polort_xmat.1D              \
+            -mask       epi_base_mask+orig          \
+            -Obeta      epi_00_retroicor_betas      \
             -Oerrts     epi_00_errts_retroicor_pmu  \
             -slibase_sm ricor_det.1D                \
             -overwrite
-    
+
+        # calculate RSS reduction or F values
+        3dTstat                     \
+            -sos                    \
+            -prefix RSS_polort      \
+            -overwrite              \
+            epi_00_errts_polort+orig
+        
+        3dTstat                     \
+            -sos                    \
+            -prefix RSS_card        \
+            -overwrite              \
+            epi_00_errts_card_pmu+orig 
+
+        3dTstat                     \
+            -sos                    \
+            -prefix RSS_resp   \
+            -overwrite              \
+            epi_00_errts_resp_pmu+orig 
+
+        3dTstat                     \
+            -sos                    \
+            -prefix RSS_retroicor   \
+            -overwrite              \
+            epi_00_errts_retroicor_pmu+orig 
+
+        # define DOF
+        set tdim        = `3dnvals epi_00+orig` 
+        set nreg_polort = `3dnvals epi_00_polort_betas+orig` 
+        set nreg_ricor  = `3dnvals epi_00_retroicor_betas+orig` 
+        set nreg_card   = `3dnvals epi_00_card_betas+orig` 
+        set nreg_resp   = `3dnvals epi_00_resp_betas+orig` 
+        @ dof_polort    = $tdim - $nreg_polort
+        @ dof_card      = $tdim - $nreg_card
+        @ dof_resp      = $tdim - $nreg_resp
+        @ dof_ricor     = $tdim - $nreg_ricor
+        @ dof_diff_card = $dof_polort - $dof_card
+        @ dof_diff_resp = $dof_polort - $dof_card
+        @ dof_diff_ricor =  $dof_polort - $dof_ricor
+
+        # To add p valule of the calculated F value map (overlayed in AFNI)
+        # You need to work on Stat info - check retroicor_pmu.m
+        # note that Fval is F(4,${dof_card})
+        3dcalc \
+            -a RSS_card+orig \
+            -b RSS_polort+orig \
+            -c epi_base_mask+orig \
+            -expr "(b-a)/a*${dof_card}/${dof_diff_card}*step(c)" \
+            -prefix Fval_card \
+            -overwrite
+
+        # note that Fval is F(4,${dof_resp})
+        3dcalc \
+            -a RSS_retroicor+orig \
+            -b RSS_polort+orig \
+            -c epi_base_mask+orig \
+            -expr "(b-a)/a*${dof_resp}/${dof_diff_resp}*step(c)" \
+            -prefix Fval_resp \
+            -overwrite
+
+        # note that Fval is F(8,${dof_ricor})
+        3dcalc \
+            -a RSS_retroicor+orig \
+            -b RSS_polort+orig \
+            -c epi_base_mask+orig \
+            -expr "(b-a)/a*${dof_ricor}/${dof_diff_ricor}*step(c)" \
+            -prefix Fval_ricor \
+            -overwrite
+
+        # conca all stats
+        \rm -f epi_00_retroicor_pmu.bucket+orig.*
+        3dTcat                                  \
+            -prefix epi_00_retroicor_pmu.bucket \
+            Fval_ricor+orig                     \
+            Fval_resp+orig                      \
+            Fval_card+orig   
+            
+
+        # stat info embeded
+        3drefit -fbuc epi_00_retroicor_pmu.bucket+orig
+        3drefit -sublabel  0 Full_Fstat
+        3drefit -sublabel  0 Resp_Fstst
+        3drefit -sublabel  0 Card_Fstst
+        3drefit -substatpar 0 fift $dof_diff_ricor $dof_ricor epi_00_retroicor_pmu.bucket+orig
+        3drefit -substatpar 1 fift $dof_diff_card $dof_card epi_00_retroicor_pmu.bucket+orig
+        3drefit -substatpar 2 fift $dof_diff_resp $dof_card epi_00_retroicor_pmu.bucket+orig
+
+        # add the tissue contrast
         3dcalc                                      \
             -a      epi_00_brain+orig               \
             -b      epi_00_errts_retroicor_pmu+orig \
@@ -413,7 +548,7 @@ if ( $physiofile != "" ) then
             -prefix epi_00_retroicor_pmu+orig       \
             -overwrite
 
-        \rm -f epi_00_errts_retroicor_pmu+orig.* rm.*
+        \rm -f epi_00_errts_*  RSS_*  rm.*
 
   	else
         echo " Error: regflag should be either MATLAB or AFNI " |& tee -a ${histfile}
@@ -579,8 +714,7 @@ if ( $DO_CLEAN == 1 ) then
     echo "++ Generated physio nuisance regressors are used with motion nuisance. " |& tee -a $histfile
     
   	\rm -f 	"${owdir}"/epi_00+orig.* 		\
-  			"${owdir}"/epi_00_errts+orig.* 	\
-            "${owdir}"/epi_00_retroicor_*
+  			"${owdir}"/epi_00_errts+orig.* 	
     
 endif
 
