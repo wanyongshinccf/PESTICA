@@ -41,12 +41,12 @@ set DO_CLEAN     = 0                       # default: keep working dir
 set histfile = log_pestica.txt
 set do_echo  = ""
 
-set fullcommand 		= "$0"
-set PESTICA_DIR 		= `dirname $fullcommand`
+set fullcommand         = "$0"
+set PESTICA_DIR         = `dirname $fullcommand`
 set MATLAB_AFNI_DIR    	= $PESTICA_DIR/afni_matlab
-set MATLAB_PESTICA_DIR 	= $PESTICA_DIR/pestica_matlab
-set MATLAB_EEGLAB_DIR  	= $PESTICA_DIR/eeglab
-set PESTICA_VOL_DIR  	= $PESTICA_DIR/template
+set MATLAB_PESTICA_DIR  = $PESTICA_DIR/pestica_matlab
+set MATLAB_EEGLAB_DIR   = $PESTICA_DIR/eeglab
+set PESTICA_VOL_DIR     = $PESTICA_DIR/template
 
 
 # ------------------- process options, a la rr ----------------------
