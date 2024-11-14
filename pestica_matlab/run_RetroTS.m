@@ -1,4 +1,13 @@
-function [SN RESP CARD] =run_RetroTS(ep2d_filename,cardfname,respfname);
+function [SN RESP CARD] =run_RetroTS(ep2d_filename,cardfname,respfname,physioflag);
+
+% function [SN RESP CARD] =run_RetroTS(ep2d_filename,cardfname,respfname,physioflag);
+% run modifed RetroTS.m, provided by NIH/AFNI
+% physioflag should be "PESTICA" or "PMU"
+%   In case of PMU, RetroTS_CCF.m is called 
+%   in case of PESTICA, RetroTS_CCF_PESTICA.m is called
+%
+% Initialized by Wanyong Shin, CCF, 20241114
+
 
 % if ~exist('ep2d_filename')
 %   ep2d_filename='S40vol+orig';
@@ -12,7 +21,6 @@ function [SN RESP CARD] =run_RetroTS(ep2d_filename,cardfname,respfname);
 % if ~exist('respfname')
 %   respfname='resp_raw_pmu.dat';
 % end
-
 
 [err,ainfo] = BrikInfo(ep2d_filename);
 tdim = ainfo.TAXIS_NUMS(1);
@@ -39,30 +47,51 @@ end
 Opts.SliceOrder   = 'Custom';
 Opts.PhysFS       = samplingrate; 
 Opts.Quiet        = 1; 
-Opts.Prefix       = ['RetroTS.PMU'];
 Opts.RVT_out      = 0; % note no RVT here, feel free to modify it
 
 % copy Card and Resp options without card/resp file name
 CardOpts = Opts;
 RespOpts = Opts;
 
+% save Respiratory signals
 if sum(std(resp_raw)) ~= 0
+  % save RetroTS.Resp.slicebase.1D here
+  RespOpts.Prefix       = ['RetroTS.' physioflag  '.resp'];
   RespOpts.Respfile     = respfname;
-  [SN, RESP, CARD] = RetroTS_CCF(RespOpts);
-  system('mv RetroTS.PMU.slibase.1D RetroTS.Resp.slibase.1D')
+  if strcmp(physioflag,'PMU')
+    [SN, RESP, CARD] = RetroTS_CCF(RespOpts);
+  else % PESTICA
+    [SN, RESP, CARD] = RetroTS_CCF_PESTICA(RespOpts);
+  end
+
+  % register resp file for full RETROICOR 
   Opts.Respfile     = respfname;
+
 end
+
 if sum(std(card_raw)) ~= 0
+  % save RetroTS.Card.slicebase.1D here
+  CardOpts.Prefix       = ['RetroTS.' physioflag '.card'];
   CardOpts.Cardfile     = cardfname;
   [SN, RESP, CARD] = RetroTS_CCF(CardOpts);
-  system('mv RetroTS.PMU.slibase.1D RetroTS.Card.slibase.1D')
+ 
+  % register card file for full RETROICOR
   Opts.Cardfile     = cardfname;
 end
 
-% save all
-[SN, RESP, CARD] = RetroTS_CCF(Opts);
+% save RetroTS.PMU.slicebase.1D
+Opts.Prefix       = ['RetroTS.' physioflag ];
+if strcmp(physioflag,'PMU')
+  [SN, RESP, CARD] = RetroTS_CCF(Opts);
+else
+  [SN, RESP, CARD] = RetroTS_CCF_PESTICA(Opts);
+end
 
 
+
+
+% The below is to generate resp/card phase function
+% See Shin, Koening and Lowe, Neuroimage 2022
 if sum(std(card_raw)) ~= 0
   cardRF = zeros(length(CARD.tntrace)-1,100);
   nstd = std(CARD.v);
@@ -113,6 +142,6 @@ if sum(std(resp_raw)) ~= 0
   title(sprintf('Resp period: %3.1f +/- %3.1f', mean(RESP.prd), std(RESP.prd)))
   ylabel('Count'); xlabel('seconds'); ylim([0 10])
 end
-saveas(gcf,'pmu_qualtiycheck.png');
+saveas(gcf,[ physioflag '_qualtiycheck.png']);
   
-save(['RetroTS.PMU.mat'],'SN','RESP','CARD');
+save(['RetroTS.' physioflag '.mat'],'SN','RESP','CARD');
