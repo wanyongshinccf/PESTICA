@@ -28,7 +28,7 @@ While the output file is the cardiac and respiratory noise corrected datset,
 we recommend using "PESTICA/RetroTS.PESTICA.slibase.1D" instead of the output image.
 You might delete a output file after run_pestica.tcsh to save the local space.
 
-RETRO.TS.PESTICA.slibase.1D is a slicewise regressor 1D file, which is used in 
+RetroTS.PESTICA.slibase.1D is a slicewise regressor 1D file, which is used in 
 3dREMLfit with other motion nuisance regressor AFTER motion correction. 
 
 We suggest using SLOMOCO after run_pestica.tcsh
