@@ -19,7 +19,7 @@ run_pestica.tcsh \
   -dset_mask <your own mask, e.g. "epi_mask.nii or epi_mask+orig"> \
   -tfile <slice acquisition timiming file, see "example_tfile.1D" > \
     or
-  -json <a json file from dcm2niix > \
+  -json <"a json file from dcm2niix" > \
   -workdir <your working directory e,g. "PESTICA" > \
   -prefix <output file name> \
   -auto -do_clean
