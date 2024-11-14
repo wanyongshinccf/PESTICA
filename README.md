@@ -11,6 +11,7 @@ How to install
    For example, if you download the package in /Users/CCF/PESTICA
    
    export PATH=$PATH:/Users/CCF/PESTICA in a bash/zsh shell
+   
    set (or setevn) PATH = $PATH::/Users/CCF/PESTICA in csh/zcsh
 
 How to use PESTICA (See a help in run_pestica.tcsh)
