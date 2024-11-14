@@ -56,6 +56,7 @@ Beall EB, Lowe MJ. Isolating physiologic noise sources with independently determ
 Neuroimage. 2007 Oct 1;37(4):1286-300. doi: 10.1016/j.neuroimage.2007.07.004. Epub 2007 Jul 13. PMID: 17689982.
 
 +++++++++++++++++++++++++++++
+
 Included the software packages
 EEGLAB developed by SCCN/UCSD
 
