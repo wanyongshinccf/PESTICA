@@ -2,11 +2,12 @@ PESETICA: physsiologoc noise esitmator using temporal ICA
 
 How to install
 Download the PESTICA package in your local and set path in your enviroment.
-For example, if you download the package in /Users/wyshin/SLOMOCO
+For example, if you download the package in /Users/wyshin/SLOMOCO,
 export PATH=$PATH:/Users/wyshin/SLOMOCO in bash/zsh
+or,
 set (or setevn) PATH = $PATH::/Users/wyshin/SLOMOCO in csh/zcsh
 
-AFNI and MATLAB should be installed and included in PATH
+AFNI and MATLAB should be installed and included in PATH.
 Type "afni" and "matlab" in your terminal. They should bring the program properly.
 
 Included the software packages
