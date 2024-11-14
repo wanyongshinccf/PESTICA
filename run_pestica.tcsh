@@ -34,6 +34,7 @@ set batchflag   = 0         # default
 set icaflag     = "MATLAB"  # MATLAB or PYTYON
 set retflag     = "MATLAB"  # MATLAB or AFNI
 set regflag     = "AFNI"    # MATLAB or AFNI
+set phycor      = "PESTICA" # PESTICA or PMU (not quite good naming though...)
 set qaflag      = "MATLAB"  # MATLAB or PYTHON
 
 set DO_CLEAN     = 0                       # default: keep working dir
@@ -102,6 +103,7 @@ while ( $ac <= $#argv )
         if ( $ac >= $#argv ) goto FAIL_MISSING_ARG
         @ ac += 1
         set physiofile = "$argv[$ac]"
+        set phycor = "PMU"
 
     # below, checked that only allowed keyword is used
     else if ( "$argv[$ac]" == "-dset_unsat_epi" ) then
@@ -297,16 +299,16 @@ if ( "${epi_mask}" == "" ) then
     echo "++ No mask provided, will make one" |& tee -a ${histfile}
     # remove skull (PT: could use 3dAutomask)
     3dSkullStrip                            \
-        -input "${owdir}"/epi_00+orig       \
+        -input  "${owdir}"/epi_00+orig      \
         -prefix "${owdir}/___tmp_mask0" 	\
         -overwrite							
 
     # binarize
-    3dcalc                              \
-        -a "${owdir}/___tmp_mask0+orig" \
-        -expr 'step(a)'                 \
-        -prefix "${owdir}/___tmp_mask1"	\
-        -datum byte -nscale             \
+    3dcalc                                      \
+        -a      "${owdir}/___tmp_mask0+orig"    \
+        -expr   'step(a)'                       \
+        -prefix "${owdir}/___tmp_mask1"	        \
+        -datum  byte -nscale                    \
         -overwrite						
 
     # inflate mask; name must match wlab name for user mask, above
@@ -350,223 +352,54 @@ endif
 cd "${owdir}"
 
 # tissue masked brain
-3dcalc                      \
-    -a epi_00+orig'[0]'     \
-    -b epi_base_mask+orig   \
-    -expr 'a*step(b)'       \
-    -prefix epi_00_brain    \
+3dcalc                          \
+    -a      epi_00+orig'[0]'    \
+    -b      epi_base_mask+orig  \
+    -expr   'a*step(b)'         \
+    -prefix epi_00_brain        \
     -overwrite
 
-# polynomial detrending matrix
-3dDeconvolve            \
-    -polort A           \
-    -input epi_00+orig 	\
-    -x1D_stop           \
-    -x1D polort_xmat.1D
 
-# detrending	
-3dREMLfit                       \
-    -input  epi_00+orig         \
-    -matrix polort_xmat.1D      \
-    -mask   epi_base_mask+orig  \
-    -Oerrts epi_00_errts        \
-    -overwrite	
-
-# remove the text from the start    
-1dcat polort_xmat.1D > rm.polort_xmat.1D 
-
-
-if ( $physiofile != "" ) then
+if ( $phycor == "PMU" ) then
     # RETROICOR starts
     set physiofile = "../$physiofile"
-    echo "Reading PMU files of $physiofile " |& tee -a ../${histfile}
+    echo "Running RETROICOR (PMU) Stage 1: Reading PMU files & generating slicewise 1d files " |& tee -a ../${histfile}
     
     # read pmu data and saved it as RetroTS.PMU.slibase.1D
     # will be replaced with a python version.
-    matlab -nodesktop -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; rw_pmu_siemens('epi_00+orig','$physiofile'); [SN RESP CARD] = run_RetroTS('epi_00+orig','card_raw_pmu.dat','resp_raw_pmu.dat'); exit;" 
+    matlab -nodesktop -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; rw_pmu_siemens('epi_00+orig','$physiofile'); [SN RESP CARD] = run_RetroTS('epi_00+orig','card_raw_pmu.dat','resp_raw_pmu.dat','PMU'); exit;" 
        
-
-    if ( $regflag == "MATLAB" ) then
-  	    matlab -nodesktop -nosplash -r "disp('Starting script...'); addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; load RetroTS.PMU.mat; [RESP CARD] = retroicor_pmu('epi_00+orig','epi_base_mask+orig',SN, CARD, RESP,'rm.polort_xmat.1D'); exit;" 
-  	else if ( $regflag == "AFNI" ) then
-        echo "++ AFNI RETROICOR is running now." |& tee -a ../${histfile}
-        echo " We recommend to regress-out physio AND motion nuisancce regressor TOGETHER. "
-        echo " However, we provide RETROICOR corrected output here." 
-
-        # demean and linear detrend here
-        3dDetrend                   \
-            -polort 1               \
-            -prefix rm.ricor.1D     \
-            -overwrite              \
-            RetroTS.CARD.slibase.1D\'
-        1dtranspose rm.ricor.1D card_det.1D
-    
-        3dDetrend                   \
-            -polort 1               \
-            -prefix rm.ricor.1D     \
-            -overwrite              \
-            RetroTS.Resp.slibase.1D\'
-        1dtranspose rm.ricor.1D resp_det.1D
-    
-        3dDetrend                   \
-            -polort 1               \
-            -prefix rm.ricor.1D     \
-            -overwrite              \
-            RetroTS.PMU.slibase.1D\'
-        1dtranspose rm.ricor.1D ricor_det.1D
-    
-        # poly det model: polynomial fit only
-        3dREMLfit                                   \
-            -input      epi_00+orig                 \
-            -matrix     polort_xmat.1D              \
-            -mask       epi_base_mask+orig          \
-            -Obeta      epi_00_polort_betas         \
-            -Oerrts     epi_00_errts_polort         \
-            -overwrite
-
-        # Card model: polynomial A + 4 cardiac regressors
-        3dREMLfit                                   \
-            -input      epi_00+orig                 \
-            -matrix     polort_xmat.1D              \
-            -mask       epi_base_mask+orig          \
-            -Obeta      epi_00_card_betas      \
-            -Oerrts     epi_00_errts_card_pmu  \
-            -slibase_sm card_det.1D                \
-            -overwrite
-
-        # Reso model: polynomial A + 4 Resp regressors   
-        3dREMLfit                                   \
-            -input      epi_00+orig                 \
-            -matrix     polort_xmat.1D              \
-            -mask       epi_base_mask+orig          \
-            -Obeta      epi_00_resp_betas      \
-            -Oerrts     epi_00_errts_resp_pmu  \
-            -slibase_sm resp_det.1D                \
-            -overwrite
-
-        # full model: polynomial A, 8 Retroicor regressors   
-        3dREMLfit                                   \
-            -input      epi_00+orig                 \
-            -matrix     polort_xmat.1D              \
-            -mask       epi_base_mask+orig          \
-            -Obeta      epi_00_retroicor_betas      \
-            -Oerrts     epi_00_errts_retroicor_pmu  \
-            -slibase_sm ricor_det.1D                \
-            -overwrite
-
-        # calculate RSS reduction or F values
-        3dTstat                     \
-            -sos                    \
-            -prefix RSS_polort      \
-            -overwrite              \
-            epi_00_errts_polort+orig
-        
-        3dTstat                     \
-            -sos                    \
-            -prefix RSS_card        \
-            -overwrite              \
-            epi_00_errts_card_pmu+orig 
-
-        3dTstat                     \
-            -sos                    \
-            -prefix RSS_resp   \
-            -overwrite              \
-            epi_00_errts_resp_pmu+orig 
-
-        3dTstat                     \
-            -sos                    \
-            -prefix RSS_retroicor   \
-            -overwrite              \
-            epi_00_errts_retroicor_pmu+orig 
-
-        # define DOF
-        set tdim        = `3dnvals epi_00+orig` 
-        set nreg_polort = `3dnvals epi_00_polort_betas+orig` 
-        set nreg_ricor  = `3dnvals epi_00_retroicor_betas+orig` 
-        set nreg_card   = `3dnvals epi_00_card_betas+orig` 
-        set nreg_resp   = `3dnvals epi_00_resp_betas+orig` 
-        @ dof_polort    = $tdim - $nreg_polort
-        @ dof_card      = $tdim - $nreg_card
-        @ dof_resp      = $tdim - $nreg_resp
-        @ dof_ricor     = $tdim - $nreg_ricor
-        @ dof_diff_card = $dof_polort - $dof_card
-        @ dof_diff_resp = $dof_polort - $dof_card
-        @ dof_diff_ricor =  $dof_polort - $dof_ricor
-
-        # To add p valule of the calculated F value map (overlayed in AFNI)
-        # You need to work on Stat info - check retroicor_pmu.m
-        # note that Fval is F(4,${dof_card})
-        3dcalc \
-            -a RSS_card+orig \
-            -b RSS_polort+orig \
-            -c epi_base_mask+orig \
-            -expr "(b-a)/a*${dof_card}/${dof_diff_card}*step(c)" \
-            -prefix Fval_card \
-            -overwrite
-
-        # note that Fval is F(4,${dof_resp})
-        3dcalc \
-            -a RSS_retroicor+orig \
-            -b RSS_polort+orig \
-            -c epi_base_mask+orig \
-            -expr "(b-a)/a*${dof_resp}/${dof_diff_resp}*step(c)" \
-            -prefix Fval_resp \
-            -overwrite
-
-        # note that Fval is F(8,${dof_ricor})
-        3dcalc \
-            -a RSS_retroicor+orig \
-            -b RSS_polort+orig \
-            -c epi_base_mask+orig \
-            -expr "(b-a)/a*${dof_ricor}/${dof_diff_ricor}*step(c)" \
-            -prefix Fval_ricor \
-            -overwrite
-
-        # conca all stats
-        \rm -f epi_00_retroicor_pmu.bucket+orig.*
-        3dTcat                                  \
-            -prefix epi_00_retroicor_pmu.bucket \
-            Fval_ricor+orig                     \
-            Fval_resp+orig                      \
-            Fval_card+orig   
-            
-
-        # stat info embeded
-        3drefit -fbuc epi_00_retroicor_pmu.bucket+orig
-        3drefit -sublabel  0 Full_Fstat
-        3drefit -sublabel  0 Resp_Fstst
-        3drefit -sublabel  0 Card_Fstst
-        3drefit -substatpar 0 fift $dof_diff_ricor $dof_ricor epi_00_retroicor_pmu.bucket+orig
-        3drefit -substatpar 1 fift $dof_diff_card $dof_card epi_00_retroicor_pmu.bucket+orig
-        3drefit -substatpar 2 fift $dof_diff_resp $dof_card epi_00_retroicor_pmu.bucket+orig
-
-        # add the tissue contrast
-        3dcalc                                      \
-            -a      epi_00_brain+orig               \
-            -b      epi_00_errts_retroicor_pmu+orig \
-            -expr   'a+b'                           \
-            -prefix epi_00_retroicor_pmu+orig       \
-            -overwrite
-
-        \rm -f epi_00_errts_*  RSS_*  rm.*
-
-  	else
-        echo " Error: regflag should be either MATLAB or AFNI " |& tee -a ${histfile}
-        goto BAD_EXIT
-
-    endif
-
 else
+    echo "Preparing PESTICA " |& tee -a ../${histfile}
 	# PESTICA starts
+    # polynomial detrending matrix
+    3dDeconvolve                \
+        -polort     A           \
+        -input  epi_00+orig 	\
+        -x1D_stop               \
+        -x1D    polort_xmat.1D
+
+    # detrended output will be used for ICA
+    3dREMLfit                       \
+        -input  epi_00+orig         \
+        -matrix polort_xmat.1D      \
+        -mask   epi_base_mask+orig  \
+        -Oerrts rm.errts        \
+        -overwrite	
+
+    # remove the text from the start, will be used in matlab 
+    1dcat polort_xmat.1D > rm.polort_xmat.1D 
+    \rm -f polort_xmat.1D
+
 	if ( $icaflag == "MATLAB" ) then
-    	echo "Running Stage 1: slicewise temporal Infomax ICA" |& tee -a ../${histfile}
-    	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_EEGLAB_DIR;disp('Wait, script starting...'); prepare_ICA_decomp_polort(${ica_comp},'epi_00_errts+orig','epi_base_mask+orig'); disp('Stage 1 Done!'); exit;" 
+    	echo "Running PESTICA Stage 1: slicewise temporal Infomax ICA" |& tee -a ../${histfile}
+    	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_EEGLAB_DIR;disp('Wait, script starting...'); prepare_ICA_decomp_polort(${ica_comp},'rm.errts+orig','epi_base_mask+orig'); disp('Stage 1 Done!'); exit;" 
 	
 	# Under development, not working yet
   	else if ( $icaflag == "PYTHON" ) then
-    	echo " working in progress = not working now "
+    	echo " working in progress -> not working now "
         python ajunct_slice_ica.py \
-            -epi epi_00+orig \
+            -epi rm.errts+orig \
             -comp 15 \
 
     else
@@ -575,56 +408,192 @@ else
 
     endif
 
-	echo "Running Stage 2: Coregistration of EPI to MNI space and back-transform of templates, followed by PESTICA estimation" |& tee -a ../${histfile}
+    # delete the residual time series data
+    \rm -f rm.errts+orig.*
+
+	echo "Running PESTICA Stage 2: Coregistration of EPI to MNI space and back-transform of templates, followed by PESTICA estimation" |& tee -a ../${histfile}
   	# EPI to MNI
-  	3dAllineate 										\
-    	-prefix epi_00_brain.crg2mni.nii 				\
-    	-source epi_00_brain+orig 						\
-    	-base $PESTICA_VOL_DIR/meanepi_mni.brain.nii 	\
-    	-1Dmatrix_save epi_00_brain.coreg.mni.1D 		\
+  	3dAllineate 										        \
+    	-prefix         epi_00_brain.crg2mni.nii 				\
+    	-source         epi_00_brain+orig 						\
+    	-base           $PESTICA_VOL_DIR/meanepi_mni.brain.nii  \
+    	-1Dmatrix_save  epi_00_brain.coreg.mni.1D 		        \
     	-overwrite										
     		
     cat_matvec epi_00_brain.coreg.mni.1D -I -ONELINE > mni.coreg.1D -overwrite
 
   	# move PESTICA template mni to EPI space
-  	3dAllineate 													\
-  		-prefix ./resp_pestica5.nii 								\
-  		-source $PESTICA_VOL_DIR/resp_mean_mni_PESTICA5.brain.nii 	\
-  		-base epi_00_brain+orig 									\
-  		-1Dmatrix_apply mni.coreg.1D 								\
+  	3dAllineate 													        \
+  		-prefix         ./resp_pestica5.nii 								\
+  		-source         $PESTICA_VOL_DIR/resp_mean_mni_PESTICA5.brain.nii 	\
+  		-base           epi_00_brain+orig 									\
+  		-1Dmatrix_apply mni.coreg.1D 								        \
   		-overwrite													
   
-  	3dAllineate 													\
-  		-prefix ./card_pestica5.nii 								\
-  		-source $PESTICA_VOL_DIR/card_mean_mni_PESTICA5.brain.nii 	\
-  		-base epi_00_brain+orig 									\
-  		-1Dmatrix_apply mni.coreg.1D 								\
+  	3dAllineate 													        \
+  		-prefix         ./card_pestica5.nii 								\
+  		-source         $PESTICA_VOL_DIR/card_mean_mni_PESTICA5.brain.nii 	\
+  		-base           epi_00_brain+orig 									\
+  		-1Dmatrix_apply mni.coreg.1D 								        \
   		-overwrite													
 
  	# run PESTICA
-  	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; disp('Wait, script starting...'); [card,resp]=apply_PESTICA(${ica_comp},'epi_00_errts+orig','epi_base_mask+orig'); fp=fopen('card_raw_pestica5.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_raw_pestica5.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); disp('Stage 2 Done!'); exit;" 
+    echo "Running PESTICA Stage 3: Selection of card/resp sigal components " |& tee -a ../$histfile
+  	matlab -nodesktop -nosplash -r "addpath $MATLAB_AFNI_DIR; addpath $MATLAB_PESTICA_DIR; [card,resp]=apply_PESTICA(${ica_comp},'epi_00+orig','epi_base_mask+orig'); fp=fopen('card_raw_pestica.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_raw_pestica.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); exit;" 
 	
-  	echo "Running Stage 3: Filtering PESTICA estimators, cardiac first, then respiratory" |& tee -a ../$histfile
-  	matlab -nodesktop -nosplash -r "addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; load('card_raw_pestica5.dat'); load('resp_raw_pestica5.dat'); disp('Wait, script starting...'); card=view_and_correct_estimator(card_raw_pestica5,'epi_00+orig','c',$batchflag); resp=view_and_correct_estimator(resp_raw_pestica5,'epi_00+orig','r',$batchflag);  fp=fopen('card_pestica5.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_pestica5.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); disp('Stage 3 Done!'); exit;" 
+  	echo "Running PESTICA Stage 4: Temporal filtering PESTICA estimators, cardiac first, then respiratory" |& tee -a ../$histfile
+  	matlab -nodesktop -nosplash -r "addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; load('card_raw_pestica.dat'); load('resp_raw_pestica.dat'); card=view_and_correct_estimator(card_raw_pestica,'epi_00+orig','c',$batchflag); resp=view_and_correct_estimator(resp_raw_pestica,'epi_00+orig','r',$batchflag);  fp=fopen('card_pestica.dat','w'); fprintf(fp,'%g\n',card); fclose(fp); fp=fopen('resp_pestica.dat','w'); fprintf(fp,'%g\n',resp); fclose(fp); exit;" 
 
-	echo "Running Stage 4: Running MATLAB-version of RETROICOR with physiological noise fluctuation" |& tee -a ../$histfile
-  	matlab -nodesktop -nosplash -r "addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; retroicor_pestica('epi_00+orig','card_pestica5.dat','resp_pestica5.dat','epi_base_mask+orig','rm.polort_xmat.1D'); disp('Stage 4 done!'); exit;" 
+    echo "Running PESTICA Stage 5: Generaing slicewise 1D files for nuisance regressors " |& tee -a ../$histfile
+    matlab -nodesktop -nosplash -r "addpath $MATLAB_PESTICA_DIR; addpath $MATLAB_AFNI_DIR; [SN RESP CARD] = run_RetroTS('epi_00+orig','card_raw_pestica.dat','resp_raw_pestica.dat','PESTICA'); exit;" 
 
 endif
 
 
-if ( $physiofile == "" ) then
-    set iname  = epi_00_retroicor_pestica.bucket
-    set snamec = Coupling_retroicor_pestica_Card
-    set snamer = Coupling_retroicor_pestica_Resp
+# Regression starts
+if ( $phycor == "PESTICA") then
+    echo "Running PESTICA Stage 6: Regression or removal of the physiologic nuisances "  |& tee -a ../${histfile}
+else  # PMU
+    echo "Running RETROICOR (PMU) Stage 2: Regression or removal of the physiologic nuisances " |& tee -a ../${histfile}
+endif 
+
+set phys1d = RetroTS.$phycor.slibase.1D 
+set card1d = RetroTS.$phycor.card.slibase.1D 
+set resp1d = RetroTS.$phycor.resp.slibase.1D 
+
+# statistical
+# 1) polort deternding only - will be compared to full model
+run_regout_nuisance.tcsh            \
+    -dset_epi   epi_00+orig         \
+    -dset_mask  epi_base_mask+orig  \
+    -polort     A                   \
+    -errts                          \
+    -prefix     errts.polort        |& tee -a ../${histfile}
+
+# 2) polort + cardiac model - will be compared to full model
+run_regout_nuisance.tcsh            \
+    -dset_epi   epi_00+orig         \
+    -dset_mask  epi_base_mask+orig  \
+    -slireg     $card1d             \
+    -polort     A                   \
+    -errts                          \
+    -prefix     errts.cardonly      |& tee -a ../${histfile}
+
+# 3) polort + respiratory model - will be compared to a full model
+run_regout_nuisance.tcsh            \
+    -dset_epi   epi_00+orig         \
+    -dset_mask  epi_base_mask+orig  \
+    -slireg     $resp1d             \
+    -polort     A                   \
+    -errts                          \
+    -prefix     errts.responly      |& tee -a ../${histfile}
+
+# 4) full model
+run_regout_nuisance.tcsh            \
+    -dset_epi   epi_00+orig         \
+    -dset_mask  epi_base_mask+orig  \
+    -slireg     $phys1d             \
+    -polort     A                   \
+    -errts                          \
+    -prefix     errts.${phycor}     |& tee -a ../${histfile}
+
+# inject the tissue contrast back
+3dTstat -mean -prefix rm.mean epi_00+orig -overwrite
+3dcalc                                      \
+    -a      errts.${phycor}+orig            \
+    -b      rm.mean+orig                    \
+    -c      epi_base_mask+orig              \
+    -expr   '(a+b)*step(c)'                 \
+    -prefix epi_00_${phycor}+orig	\
+    -overwrite
+
+\rm -f rm.mean+orig.*
+
+# find degree of freedom of each model
+set zdim    = `3dinfo -nk epi_00+orig`
+set cdims   = `1d_tool.py -infile $card1d       -show_rows_cols -verb 0`
+set rdims   = `1d_tool.py -infile $resp1d       -show_rows_cols -verb 0`
+set pdims   = `1d_tool.py -infile $phys1d       -show_rows_cols -verb 0`
+set ddims   = `1d_tool.py -infile rem.polort.1D -show_rows_cols -verb 0`
+
+set tdim    = `echo $pdims[1]`
+set zregdim = `echo $cdims[2]`
+@ nreg_card = $zregdim / $zdim
+set zregdim = `echo $rdims[2]`
+@ nreg_resp = $zregdim / $zdim
+set zregdim = `echo $pdims[2]`
+@ nreg_full = $zregdim / $zdim
+
+set npolort = `echo $ddims[2]`
+
+@ dof_full  = $tdim - $npolort - $nreg_full
+@ dof_card  = $tdim - $npolort - $nreg_card
+@ dof_resp  = $tdim - $npolort - $nreg_resp
+
+3dTstat -sos -prefix rss.polort     errts.polort+orig       -overwrite
+3dTstat -sos -prefix rss.cardonly   errts.cardonly+orig     -overwrite
+3dTstat -sos -prefix rss.responly   errts.responly+orig     -overwrite
+3dTstat -sos -prefix rss.physiocor  errts.${phycor}+orig    -overwrite
+
+# delete the residual but keep errts.$physiocor
+\rm -f  errts.polort+orig.*     \
+        errts.cardonly+orig.*   \
+        errts.responly+orig.*   
+
+        
+# 1) F map of respiratory model
+3dcalc                                                  \
+    -a      rss.cardonly+orig                           \
+    -b      rss.physiocor+orig                          \
+    -c      epi_base_mask+orig                          \
+    -expr   "(b-a)/a*${dof_full}/${nreg_resp}*step(c)"  \
+    -prefix Fval_resp                                   \
+    -overwrite
+
+# 2) F map of cardiac model
+3dcalc                                                  \
+    -a      rss.responly+orig                           \
+    -b      rss.physiocor+orig                          \
+    -c      epi_base_mask+orig                          \
+    -expr   "(b-a)/a*${dof_full}/${nreg_card}*step(c)"  \
+    -prefix Fval_card                                   \
+    -overwrite
+
+# 3) full model
+3dcalc                                                  \
+    -a      rss.polort+orig                             \
+    -b      rss.physiocor+orig                          \
+    -c      epi_base_mask+orig                          \
+    -expr   "(b-a)/a*${dof_full}/${nreg_full}*step(c)"  \
+    -prefix Fval_full                                   \
+    -overwrite
+
+# delete a bucket file since 3dTcat does not have -overwrite option
+\rm -f epi_00_${phycor}.bucket+orig.*
+3dTcat                                  \
+    -prefix epi_00_${phycor}.bucket \
+    Fval_full+orig                     \
+    Fval_resp+orig                     \
+    Fval_card+orig   
+
+\rm -f  Fval_full+orig.* \
+        Fval_card+orig.* \
+        Fval_resp+orig.*            
+
+# stat info embeded
+3drefit -fbuc           epi_00_${phycor}.bucket+orig
+3drefit -sublabel   0   Full_Fstat epi_00_${phycor}.bucket+orig
+3drefit -sublabel   1   Resp_Fstst epi_00_${phycor}.bucket+orig
+3drefit -sublabel   2   Card_Fstst epi_00_${phycor}.bucket+orig
+3drefit -substatpar 0   fift $nreg_full $dof_full epi_00_${phycor}.bucket+orig
+3drefit -substatpar 1   fift $nreg_resp $dof_resp epi_00_${phycor}.bucket+orig
+3drefit -substatpar 2   fift $nreg_card $dof_card epi_00_${phycor}.bucket+orig
+
+
+set iname  = epi_00_${phycor}.bucket
+set snamec = Coupling_${phycor}_card
+set snamer = Coupling_${phycor}_resp
     
-else
-    set iname  = epi_00_retroicor_pmu.bucket
-    set snamec = Coupling_retroicor_pmu_Card
-    set snamer = Coupling_retroicor_pmu_Resp
-    
-endif
-  
 if ( -f $iname+orig.HEAD ) then
 
     echo "" 
@@ -651,7 +620,7 @@ if ( -f $iname+orig.HEAD ) then
     @chauffeur_afni                 \
         -ulay $fname+orig           \
         -olay $iname+orig           \
-        -func_range 10              \
+        -func_range 5              \
         -thr_olay_p2stat 0.01       \
         -thr_olay_pside 2sided      \
         -set_xhairs OFF             \
@@ -666,7 +635,7 @@ if ( -f $iname+orig.HEAD ) then
     @chauffeur_afni                 \
         -ulay $fname+orig           \
         -olay $iname+orig           \
-        -func_range 10              \
+        -func_range 5              \
         -thr_olay_p2stat 0.01       \
         -thr_olay_pside 2sided      \
         -set_xhairs OFF             \
@@ -679,7 +648,7 @@ if ( -f $iname+orig.HEAD ) then
     \mv __tmp_card.axi.png $snamec.png
 							
 else
-    echo SKIP Step5 $iname+orig.BRIK does not exist. |& tee -a ../$histfile
+    echo SKIP QA $iname+orig.BRIK does not exist. |& tee -a ../$histfile
 endif
   
   
@@ -689,32 +658,26 @@ set whereout = $PWD
 
 # copy the final result
 echo "++ Saving physiologic noise corrected EPI dataset is saved with $prefix " |& tee -a $histfile
-if ( $physiofile == "" ) then
-	3dcalc 													\
-		-a "${owdir}"/epi_00_retroicor_pestica+orig	\
-		-expr 'a' 											\
-		-prefix ./"${prefix}" 								\
-		-overwrite 		
-	echo "++ However, you might not need a $prefix file but $owdir/RetroTS.PESTICA5.slibase.1D " |& tee -a $histfile								
-else
-	3dcalc  												\
-		-a 	"${owdir}"/epi_00_retroicor_pmu+orig 		\
-		-expr 'a' 											\
-		-prefix ./"${prefix}" 								\
-		-overwrite 	 
-	echo "++ However, you might not need a $prefix file but $owdir/RetroTS.PMU.slibase.1D " |& tee -a $histfile										
-endif
-echo "++ Physio nuisance regressors are recommended to remove out with motion nuisance regressors " |& tee -a $histfile		
-echo "++   all together after motion correction " |& tee -a $histfile
-echo "++ Check run_slomoco/volmoco.tcsh in a SLOMOCO package "		|& tee -a $histfile	
+3dcalc                                          \
+    -a      "${owdir}"/epi_00_${phycor}+orig    \
+    -expr   'a'                                 \
+    -prefix ./"${prefix}"                       \
+    -overwrite 		
+
+echo "++ However, you might not need a $prefix file but $owdir/RetroTS.*.slibase.1D "   |& tee -a $histfile								
+echo "++ Physio nuisance regressors are recommended to be removd "                      |& tee -a $histfile		
+echo "++ with motion nuisance regressors AFTER motion correction "                      |& tee -a $histfile
+echo "++ Check run_slomoco/volmoco.tcsh in PESTICA/SLOMOCO package "                    |& tee -a $histfile	
 
 if ( $DO_CLEAN == 1 ) then
-    echo "++ Removing the large size of temporary files in working dir: '$owdir" |& tee -a $histfile
-    echo "++ DO NOT DELETE working directory. " |& tee -a $histfile
-    echo "++ Generated physio nuisance regressors are used with motion nuisance. " |& tee -a $histfile
+    echo "++ Removing the large size of temporary files in working dir: '$owdir"        |& tee -a $histfile
+    echo "++ DO NOT DELETE working directory. "                                         |& tee -a $histfile
+    echo "++ Generated physio nuisance regressors are used with motion nuisance. "      |& tee -a $histfile
     
-  	\rm -f 	"${owdir}"/epi_00+orig.* 		\
-  			"${owdir}"/epi_00_errts+orig.* 	
+  	\rm -f 	"${owdir}"/epi_00+orig.* 		    \
+  			"${owdir}"/epi_00_${phycor}+orig.* 	\
+            "${owdir}"/rss.*+orig.*             \
+            "${owdir}"/errts.${phycor}+orig.*
     
 endif
 
@@ -747,7 +710,7 @@ Required options:
     -prefix output      = output filename
  
 Optional:
-    -dset_mask  input	= skull stripped mask 
+    -dset_mask  input	= skull stripped mask or brain tissue image
     -pmu    input       = pmu file prefix for RETROICOR (NOT PESTICA)  
     -workdir directory  = intermediate output data will be generated in the defined directory.
     -auto               = batch mode. Auto selection of the estimated cardiac and respiratory
