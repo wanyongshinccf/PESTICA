@@ -13,6 +13,7 @@ How to install
    set (or setevn) PATH = $PATH::/Users/CCF/PESTICA in csh/zcsh
 
 How to use PESTICA (See a help in run_pestica.tcsh)
+
 run_pestica.tcsh \
   -dset_epi <no motion corrected epi data, e.g. "epi.nii or epi+orig"> \
   -dset_mask <your own mask, e.g. "epi_mask.nii or epi_mask+orig"> \
@@ -31,7 +32,7 @@ RETRO.TS.PESTICA.slibase.1D is a slicewise regressor 1D file, which is used in
 3dREMLfit with other motion nuisance regressor AFTER motion correction. 
 
 We suggest using SLOMOCO after run_pestica.tcsh
-For example;
+
 run_slomoco.tcsh \
   -dset_epi <no motion corrected epi data, e.g. "epi.nii or epi+orig"> \
   -dset_mask <your own mask, e.g. "epi_mask.nii or epi_mask+orig"> \
