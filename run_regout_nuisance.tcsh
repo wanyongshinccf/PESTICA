@@ -167,14 +167,14 @@ setenv PESTICA_DIR `dirname "${fullcommand}"`
     -polort     $npolort        \
     -input      $epi 	        \
     -x1D_stop                   \
-    -x1D        rem.polort.1D   \
+    -x1D        rm.polort.1D   \
     -overwrite
 
-set volregstr = "-matrix rem.polort.1D "
+set volregstr = "-matrix rm.polort.1D "
 
 # demean nuisance regressors
 if ( $volreg1D != "" ) then 
-
+    echo "++ volume-wise  regressors are prepared with detrending regressor(s). "
     1d_tool.py                  \
         -infile $volreg1D       \
         -demean                 \
@@ -193,12 +193,12 @@ if ( $volreg1D != "" ) then
         -stim_file 4 rm.mopa6.demean.1D'[3]' -stim_label 4 mopa4 -stim_base 4 	\
         -stim_file 5 rm.mopa6.demean.1D'[4]' -stim_label 5 mopa5 -stim_base 5 	\
         -stim_file 6 rm.mopa6.demean.1D'[5]' -stim_label 6 mopa6 -stim_base 6 	\
-        -x1D        rem.volreg.1D                                           \
+        -x1D        rm.volreg.1D                                           \
         -x1D_stop                                                           \
   	    -overwrite
 
     # update 
-    set volregstr = "-matrix rem.volreg.1D "
+    set volregstr = "-matrix rm.volreg.1D "
 endif
   
 
@@ -207,7 +207,8 @@ endif
 # zero vector is replaced with one vector.
 
 # demean nuisance regressors
-if ( $slireg1D != "" ) then 
+if ( $slireg1D != "" ) then
+    echo "++ Sliwise regressors are prepared. "
     # demean first
     1d_tool.py                  \
         -infile $slireg1D       \
@@ -219,12 +220,13 @@ if ( $slireg1D != "" ) then
     \rm -f rem.sliregslireg_zp.1D 
 python $PESTICA_DIR/patch_zeros.py           \
         -infile rm.slireg.demean.1D \
-        -write rem.slireg.1D  
+        -write rm.slireg.1D  
 
-    set sliregstr = "-slibase_sm rem.slireg.1D " 
+    set sliregstr = "-slibase_sm rm.slireg.1D " 
 endif
 
-if ( $voxpvreg != "" ) then 
+if ( $voxpvreg != "" ) then
+    echo "++ Voxelwise regressor is defined. "
     set voxregstr = "-dsort ${voxpvreg}   " 
 endif
 
