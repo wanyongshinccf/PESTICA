@@ -115,22 +115,22 @@ end
 h = figure('visible','off');
 
 if sum(std(card_raw)) ~= 0
-  subplot(2,3,1); plot(CARD.t,CARD.v); xlim([0 30]); ylim([-2000 2000])
+  subplot(2,3,1); plot(CARD.t,CARD.v); xlim([0 30]); 
   title('Card signal (< 30s)')
   text(5,-1000,sprintf('null pt = %6d',length(find(card_raw==0))))
   text(5,-1500,sprintf('sat pt = %6d',length(find(card_raw==4095))))
   
   subplot(2,3,2); errorbar(1:100,mean(cardRF,1),std(cardRF,1));xlim([0 100]);title('Card cycle');
-  text(30,-1, sprintf('SD = %3.2f', mean(std(cardRF))));ylim([-2 2])
+  text(30,-1, sprintf('SD = %3.2f', mean(std(cardRF))));
   
   subplot(2,3,3);hist((CARD.prd),30)
   title(sprintf('Card period: %3.1f +/- %3.1f', mean(CARD.prd), std(CARD.prd)))
-  ylabel('Count'); xlabel('seconds'); ylim([0 10])
+  ylabel('Count'); xlabel('seconds'); 
   
 end
 
 if sum(std(resp_raw)) ~= 0
-  subplot(2,3,4); plot(RESP.t,RESP.v); xlim([0 60]); ylim([-2000 2000])
+  subplot(2,3,4); plot(RESP.t,RESP.v); xlim([0 60]); 
   title('Resp signal (<1min)')
   text(5,-1000,sprintf('null pt = %6d',length(find(resp_raw==0))))
   text(5,-1500,sprintf('sat pt = %6d',length(find(resp_raw==4095))))
@@ -140,7 +140,7 @@ if sum(std(resp_raw)) ~= 0
 
   subplot(2,3,6);hist((RESP.prd),30)
   title(sprintf('Resp period: %3.1f +/- %3.1f', mean(RESP.prd), std(RESP.prd)))
-  ylabel('Count'); xlabel('seconds'); ylim([0 10])
+  ylabel('Count'); xlabel('seconds'); 
 end
 saveas(gcf,[ physioflag '_qualtiycheck.png']);
   

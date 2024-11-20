@@ -31,7 +31,10 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 1. triggering
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-[ext tp_start_ext tp_end_ext] = readpmufile(fname_ext);
+% readpmufile uses textscan while readpmu uses textread (old)
+% a pmu file format varies on IDEA version. Going back to textread (W.S 20241119)
+% [ext tp_start_ext tp_end_ext] = readpmufile(fname_ext); % textxcan can
+[ext tp_start_ext tp_end_ext] = readpmutime(fname_ext);
 
 % newly added to consider signals from original box
 diffext = diff(ext);
@@ -51,11 +54,11 @@ tdim=length(xtrigs);
 ms_dur_ext = tp_end_ext - tp_start_ext; % [ms]
 
 % read respiratory pmu
-[resp tp_start_resp tp_end_resp] = readpmufile(fname_resp);
+[resp tp_start_resp tp_end_resp] = readpmutime(fname_resp);
 ms_dur_resp = tp_end_resp - tp_start_resp; % [ms]
 
 % read cardiac pmu
-[card tp_start_card tp_end_card] = readpmufile(fname_card);
+[card tp_start_card tp_end_card] = readpmutime(fname_card);
 ms_dur_card = tp_end_card - tp_start_card; % [ms]
 
 % check the data quality 
