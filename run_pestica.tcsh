@@ -546,7 +546,7 @@ set npolort = `echo $ddims[2]`
     -a      rss.cardonly+orig                           \
     -b      rss.physiocor+orig                          \
     -c      epi_base_mask+orig                          \
-    -expr   "(b-a)/a*${dof_full}/${nreg_resp}*step(c)"  \
+    -expr   "(a-b)/b*${dof_full}/${nreg_resp}*step(c)"  \
     -prefix Fval_resp                                   \
     -overwrite
 
@@ -555,7 +555,7 @@ set npolort = `echo $ddims[2]`
     -a      rss.responly+orig                           \
     -b      rss.physiocor+orig                          \
     -c      epi_base_mask+orig                          \
-    -expr   "(b-a)/a*${dof_full}/${nreg_card}*step(c)"  \
+    -expr   "(a-b)/b*${dof_full}/${nreg_card}*step(c)"  \
     -prefix Fval_card                                   \
     -overwrite
 
@@ -564,7 +564,7 @@ set npolort = `echo $ddims[2]`
     -a      rss.polort+orig                             \
     -b      rss.physiocor+orig                          \
     -c      epi_base_mask+orig                          \
-    -expr   "(b-a)/a*${dof_full}/${nreg_full}*step(c)"  \
+    -expr   "(a-b)/b*${dof_full}/${nreg_full}*step(c)"  \
     -prefix Fval_full                                   \
     -overwrite
 
