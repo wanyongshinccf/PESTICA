@@ -516,7 +516,7 @@ set zdim    = `3dinfo -nk epi_00+orig`
 set cdims   = `1d_tool.py -infile $card1d       -show_rows_cols -verb 0`
 set rdims   = `1d_tool.py -infile $resp1d       -show_rows_cols -verb 0`
 set pdims   = `1d_tool.py -infile $phys1d       -show_rows_cols -verb 0`
-set ddims   = `1d_tool.py -infile rem.polort.1D -show_rows_cols -verb 0`
+set ddims   = `1d_tool.py -infile rm.polort.1D -show_rows_cols -verb 0`
 
 set tdim    = `echo $pdims[1]`
 set zregdim = `echo $cdims[2]`
@@ -658,7 +658,6 @@ endif
   
 # move out of wdir 
 cd $here
-set whereout = $PWD
 
 # copy the final result
 echo "++ Saving physiologic noise corrected EPI dataset is saved with $prefix " |& tee -a $odir/$histfile
@@ -687,7 +686,6 @@ endif
 
 echo ""
 echo "++ DONE.  View the finished, axialized product:" |& tee -a $odir/$histfile
-echo "     $whereout"
 echo ""
 
 goto GOOD_EXIT
