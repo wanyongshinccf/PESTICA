@@ -17,11 +17,9 @@ setenv AFNI_MESSAGE_COLORIZE     NO         # so all text is simple b/w
 # ----------------------- set defaults --------------------------
 
 set this_prog = "run_pestica"
-set here      = $PWD
-
 set prefix    = ""
-set odir      = $here
-set wdir      = ""
+set odir      = ""
+set wdir      = "."
 
 # --------------------- pestica-specific inputs --------------------
 
@@ -84,6 +82,7 @@ while ( $ac <= $#argv )
         set prefix = "$argv[$ac]"
         set odir = `dirname $prefix`
         set odir = `realpath $odir`
+        set oname = `basename $prefix`
 
     # --------- required either of tfile or json option
     else if ( "$argv[$ac]" == "-tfile" ) then
@@ -516,7 +515,7 @@ set zdim    = `3dinfo -nk epi_00+orig`
 set cdims   = `1d_tool.py -infile $card1d       -show_rows_cols -verb 0`
 set rdims   = `1d_tool.py -infile $resp1d       -show_rows_cols -verb 0`
 set pdims   = `1d_tool.py -infile $phys1d       -show_rows_cols -verb 0`
-set ddims   = `1d_tool.py -infile rm.polort.1D -show_rows_cols -verb 0`
+set ddims   = `1d_tool.py -infile rm.polort.1D  -show_rows_cols -verb 0`
 
 set tdim    = `echo $pdims[1]`
 set zregdim = `echo $cdims[2]`
@@ -654,17 +653,14 @@ if ( -f $iname+orig.HEAD ) then
 else
     echo SKIP QA $iname+orig.BRIK does not exist. |& tee -a $odir/$histfile
 endif
-  
-  
-# move out of wdir 
-cd $here
+
 
 # copy the final result
 echo "++ Saving physiologic noise corrected EPI dataset is saved with $prefix " |& tee -a $odir/$histfile
 3dcalc                                          \
     -a      "${owdir}"/epi_00_${phycor}+orig    \
     -expr   'a'                                 \
-    -prefix "${prefix}"                       \
+    -prefix "${odir}/${oname}"                  \
     -overwrite 		
 
 echo "++ However, you might not need a $prefix file but $owdir/RetroTS.*.slibase.1D "   |& tee -a $odir/$histfile								
