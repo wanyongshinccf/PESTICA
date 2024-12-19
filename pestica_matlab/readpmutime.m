@@ -1,5 +1,5 @@
 function [pmu LogStartTime LogStopTime] = readpmutime(fname)
-temp=textread(fname,'%s', 'delimiter','\n', 'bufsize', 1600000);
+temp=textread(fname,'%s', 'delimiter','\n', 'bufsize', 3200000);
 pmustr = temp{1};
 strstart = strfind(pmustr,'5002');
 strend   = strfind(pmustr,'6002');
