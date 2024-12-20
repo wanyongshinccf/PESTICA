@@ -151,10 +151,10 @@ end
 # define SLOMOCO directory
 set fullcommand = "$0"
 set fullcommandlines = "$argv"
-setenv PESTICA_DIR `dirname "${fullcommand}"`
-setenv MATLAB_PESTICA_DIR  $PESTICA_DIR/pestica_matlab
-setenv MATLAB_EEG_DIR      $PESTICA_DIR/eeglab
-setenv MATLAB_AFNI_DIR     $PESTICA_DIR/afni_matlab
+setenv PESTICA_DIR          `dirname "${fullcommand}"`
+setenv MATLAB_PESTICA_DIR   $PESTICA_DIR/pestica_matlab
+setenv MATLAB_EEG_DIR       $PESTICA_DIR/eeglab
+setenv MATLAB_AFNI_DIR      $PESTICA_DIR/afni_matlab
 
 # initialize a log file
 echo "" >> $odir/$histfile
