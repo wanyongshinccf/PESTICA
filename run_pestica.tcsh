@@ -352,6 +352,13 @@ endif
 # move to wdir to do work
 cd "${owdir}"
 
+# polynomial detrending matrix, will be used for RETROICOR or PESTICA
+3dDeconvolve                \
+    -polort     A           \
+    -input  epi_00+orig     \
+    -x1D_stop               \
+    -x1D    polort_xmat.1D
+
 # tissue masked brain
 3dcalc                          \
     -a      epi_00+orig'[0]'    \
@@ -373,13 +380,6 @@ if ( $phycor == "PMU" ) then
        
 else
     echo "Preparing PESTICA " |& tee -a $odir/${histfile}
-	# PESTICA starts
-    # polynomial detrending matrix
-    3dDeconvolve                \
-        -polort     A           \
-        -input  epi_00+orig 	\
-        -x1D_stop               \
-        -x1D    polort_xmat.1D
 
     # detrended output will be used for ICA
     3dREMLfit                       \
@@ -512,10 +512,10 @@ run_regout_nuisance.tcsh            \
 
 # find degree of freedom of each model
 set zdim    = `3dinfo -nk epi_00+orig`
-set cdims   = `1d_tool.py -infile $card1d       -show_rows_cols -verb 0`
-set rdims   = `1d_tool.py -infile $resp1d       -show_rows_cols -verb 0`
-set pdims   = `1d_tool.py -infile $phys1d       -show_rows_cols -verb 0`
-set ddims   = `1d_tool.py -infile rm.polort.1D  -show_rows_cols -verb 0`
+set cdims   = `1d_tool.py -infile $card1d        -show_rows_cols -verb 0`
+set rdims   = `1d_tool.py -infile $resp1d        -show_rows_cols -verb 0`
+set pdims   = `1d_tool.py -infile $phys1d        -show_rows_cols -verb 0`
+set ddims   = `1d_tool.py -infile polort_xmat.1D -show_rows_cols -verb 0`
 
 set tdim    = `echo $pdims[1]`
 set zregdim = `echo $cdims[2]`
