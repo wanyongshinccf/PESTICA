@@ -167,10 +167,10 @@ setenv PESTICA_DIR `dirname "${fullcommand}"`
     -polort     $npolort        \
     -input      $epi 	        \
     -x1D_stop                   \
-    -x1D        rm.polort.1D   \
+    -x1D        __rm.polort.1D   \
     -overwrite
 
-set volregstr = "-matrix rm.polort.1D "
+set volregstr = "-matrix __rm.polort.1D "
 
 # demean nuisance regressors
 if ( $volreg1D != "" ) then 
@@ -178,7 +178,7 @@ if ( $volreg1D != "" ) then
     1d_tool.py                  \
         -infile $volreg1D       \
         -demean                 \
-        -write rm.mopa6.demean.1D  \
+        -write __rm.mopa6.demean.1D  \
         -overwrite
     
     # volmopa includues the polinominal (linear) detrending 
@@ -187,18 +187,18 @@ if ( $volreg1D != "" ) then
         -mask   ${epi_mask}                                                 \
         -polort $npolort                                                    \
         -num_stimts 6                                                       \
-        -stim_file 1 rm.mopa6.demean.1D'[0]' -stim_label 1 mopa1 -stim_base 1 	\
-        -stim_file 2 rm.mopa6.demean.1D'[1]' -stim_label 2 mopa2 -stim_base 2 	\
-        -stim_file 3 rm.mopa6.demean.1D'[2]' -stim_label 3 mopa3 -stim_base 3 	\
-        -stim_file 4 rm.mopa6.demean.1D'[3]' -stim_label 4 mopa4 -stim_base 4 	\
-        -stim_file 5 rm.mopa6.demean.1D'[4]' -stim_label 5 mopa5 -stim_base 5 	\
-        -stim_file 6 rm.mopa6.demean.1D'[5]' -stim_label 6 mopa6 -stim_base 6 	\
-        -x1D        rm.volreg.1D                                           \
+        -stim_file 1 __rm.mopa6.demean.1D'[0]' -stim_label 1 mopa1 -stim_base 1 	\
+        -stim_file 2 __rm.mopa6.demean.1D'[1]' -stim_label 2 mopa2 -stim_base 2 	\
+        -stim_file 3 __rm.mopa6.demean.1D'[2]' -stim_label 3 mopa3 -stim_base 3 	\
+        -stim_file 4 __rm.mopa6.demean.1D'[3]' -stim_label 4 mopa4 -stim_base 4 	\
+        -stim_file 5 __rm.mopa6.demean.1D'[4]' -stim_label 5 mopa5 -stim_base 5 	\
+        -stim_file 6 __rm.mopa6.demean.1D'[5]' -stim_label 6 mopa6 -stim_base 6 	\
+        -x1D        __rm.volreg.1D                                           \
         -x1D_stop                                                           \
   	    -overwrite
 
     # update 
-    set volregstr = "-matrix rm.volreg.1D "
+    set volregstr = "-matrix __rm.volreg.1D "
 endif
   
 
@@ -213,16 +213,16 @@ if ( $slireg1D != "" ) then
     1d_tool.py                  \
         -infile $slireg1D       \
         -demean                 \
-        -write rm.slireg.demean.1D  \
+        -write __rm.slireg.demean.1D  \
         -overwrite
 
     # replace zero vectors with linear one
-    \rm -f rem.sliregslireg_zp.1D 
-python $PESTICA_DIR/patch_zeros.py           \
-        -infile rm.slireg.demean.1D \
-        -write rm.slireg.1D  
+    \rm -f __rm.sliregs.1D 
+python $PESTICA_DIR/patch_zeros.py    \
+        -infile __rm.slireg.demean.1D \
+        -write  __rm.slireg.1D  
 
-    set sliregstr = "-slibase_sm rm.slireg.1D " 
+    set sliregstr = "-slibase_sm __rm.slireg.1D " 
 endif
 
 if ( $voxpvreg != "" ) then
@@ -238,21 +238,25 @@ endif
     $volregstr          \
     $sliregstr          \
     $voxregstr          \
-    -Oerrts rm.errts    \
+    -Oerrts __rm.errts  \
     -GOFORIT            \
     -overwrite              
 
 if ( $errts == 1 ) then
-    3dcopy rm.errts+orig $prefix -overwrite
+    3dcopy __rm.errts+orig $prefix -overwrite
 
 else
     # calculate mean
-    3dTstat -mean -prefix rm.mean ${epi} -overwrite \
+    3dTstat               \
+        -mean             \
+        -prefix __rm.mean \
+        ${epi}            \
+        -overwrite 
 
     # put the tissue contrast back to the residual signal  
     3dcalc                      \
-        -a rm.errts+orig        \
-        -b rm.mean+orig         \
+        -a __rm.errts+orig        \
+        -b __rm.mean+orig         \
         -c ${epi_mask}          \
         -expr '(a+b)*step(c)'   \
         -prefix $prefix         \
@@ -260,7 +264,7 @@ else
 
 endif
 
-\rm -f rm.*
+\rm -f __rm.*
 
 
 echo ""
