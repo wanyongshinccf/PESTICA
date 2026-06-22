@@ -12,6 +12,10 @@ if exist([pmufileprefix '.ext'])
   [fext,fcard,fresp] = readSiemesnPhysio(pmufileprefix,Info.TAXIS_FLOATS(2)); 
 elseif exist([pmufileprefix '_Info.log'])
   [fext,fcard,fresp] = readCMRRPhysio_CCF(pmufileprefix,Info.TAXIS_FLOATS(2));
+elseif exist([pmufileprefix '.xml'])
+  
+
+  [fext,fcard,fresp] = readpmuxa(pmufileprefix,Info.TAXIS_FLOATS(2));
 else
   disp('ERROR: pmu postfix should be ext or log')
   return
